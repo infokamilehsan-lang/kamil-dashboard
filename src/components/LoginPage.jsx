@@ -14,13 +14,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
-  const [mounted, setMounted] = useState(false);
+  const [mounted, setMounted] = useState(true);
   const [googleLoading, setGoogleLoading] = useState(false);
   const googleBtnRef = useRef(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 100);
-    return () => clearTimeout(t);
+    // no-op: mounted is always true
   }, []);
 
   // Initialize Google Sign-In
