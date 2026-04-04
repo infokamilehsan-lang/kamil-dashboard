@@ -31,17 +31,40 @@ export function AuthProvider({ children }) {
     const email = localStorage.getItem(EMAIL_KEY);
     if (!token || !email) { setLoading(false); return; }
 
-    // Verify token with backend
-    apiFetch('/api/auth/me', 'GET')
-      .then(({ email: serverEmail }) => {
-        setUser({ email: serverEmail, displayName: serverEmail.split('@')[0] });
+    // Safety: never stay on loading screen more than 6 seconds
+    const safetyTimer = setTimeout(() => {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(EMAIL_KEY);
+      setLoading(false);
+    }, 6000);
+
+    // Verify token with backend (with 5s timeout)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const token_ = localStorage.getItem(TOKEN_KEY);
+    fetch(`${API_URL}/api/auth/me`, {
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token_}` },
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        clearTimeout(timeoutId);
+        const data = await res.json();
+        if (res.ok) setUser({ email: data.email, displayName: data.email.split('@')[0] });
+        else { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(EMAIL_KEY); }
       })
       .catch(() => {
-        // Token expired or server down — clear session
+        clearTimeout(timeoutId);
+        // Network error or timeout — clear session so login page shows
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(EMAIL_KEY);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        clearTimeout(safetyTimer);
+        setLoading(false);
+      });
+
+    return () => { clearTimeout(safetyTimer); clearTimeout(timeoutId); controller.abort(); };
   }, []);
 
   const login = useCallback(async (email, password) => {
