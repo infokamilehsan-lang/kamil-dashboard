@@ -93,6 +93,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
       subject: `Test Notification – ${shop.name}`,
       message: `This is a test email from ${shop.name}.\nEmail notifications are working correctly!`,
       shopName: shop.name,
+      emailCfg: emailSettings,
     });
     setEmailTestResult(res.success ? 'ok' : res.error || 'failed');
     setTimeout(() => setEmailTestResult(null), 4000);

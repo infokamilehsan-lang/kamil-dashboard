@@ -135,7 +135,7 @@ export default function LoginPage() {
           <img
             src="/brochure.png"
             alt="Team"
-            className="h-[75vh] w-auto max-w-full object-contain object-left-bottom drop-shadow-2xl"
+            className="h-[75vh] w-auto max-w-full object-contain object-bottom-left drop-shadow-2xl"
           />
         </div>
       </div>
@@ -194,7 +194,7 @@ export default function LoginPage() {
             <img
               src="/brochure.png"
               alt="Team"
-              className="lg:hidden h-52 w-auto object-contain drop-shadow-2xl -mr-4 self-end mb-[-4rem]"
+              className="lg:hidden h-52 w-auto object-contain drop-shadow-2xl -mr-4 self-end -mb-16"
             />
           </div>
 
@@ -318,13 +318,17 @@ export default function LoginPage() {
           {/* Google Sign-In */}
           {GOOGLE_CLIENT_ID && (
             <div style={trans(550)}>
-              <div ref={googleBtnRef} className="w-full flex justify-center" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, overflow: 'hidden' }} />
               <button
                 type="button"
                 onClick={() => {
-                  const iframe = googleBtnRef.current?.querySelector('iframe');
-                  if (iframe) iframe.contentWindow?.document?.querySelector('div[role=button]')?.click();
-                  else googleBtnRef.current?.querySelector('div[role=button]')?.click();
+                  if (window.google?.accounts?.id) {
+                    window.google.accounts.id.prompt((notification) => {
+                      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                        // Fallback: try clicking the rendered button
+                        googleBtnRef.current?.querySelector('div[role=button]')?.click();
+                      }
+                    });
+                  }
                 }}
                 className="w-full py-3.5 rounded-xl flex items-center justify-center gap-3 text-sm font-bold text-white transition-all duration-300 hover:shadow-[0_20px_50px_rgba(245,158,11,0.15)] active:scale-[0.97]"
                 style={{ background: 'linear-gradient(135deg, #f59e0b, #10b981)' }}
@@ -344,6 +348,9 @@ export default function LoginPage() {
               )}
             </div>
           )}
+
+          {/* Hidden Google rendered button (fallback) */}
+          <div ref={googleBtnRef} style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, overflow: 'hidden' }} />
 
           {/* Footer */}
           <p className="text-center text-stone-700 text-[11px] mt-10" style={trans(600)}>

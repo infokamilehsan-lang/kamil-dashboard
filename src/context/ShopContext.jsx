@@ -78,7 +78,7 @@ const ShopContext = createContext(null);
 // ── MySQL REST API ────────────────────────────────────────────
 // Set VITE_API_URL in .env to point at your backend server.
 // Default: http://localhost:3001 (local dev)
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+const API_URL = (import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001`).replace(/\/$/, '');
 
 function apiToken() {
   return localStorage.getItem('kamil_auth_token') || null;

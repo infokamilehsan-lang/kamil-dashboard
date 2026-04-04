@@ -16,7 +16,7 @@ const CARD_COLORS = [
 ];
 
 export default function PayMemberModal({ shop, member, onClose }) {
-  const { addTransactionForShop, updateTeamMember } = useShop();
+  const { addTransactionForShop, updateTeamMember, emailSettings } = useShop();
   const { t, locale } = useLanguage();
 
   const currencyObj = CURRENCIES.find((c) => c.code === shop.currency) || CURRENCIES[0];
@@ -86,6 +86,7 @@ export default function PayMemberModal({ shop, member, onClose }) {
         subject: `Salary Paid – ${shop.name}`,
         message: `Dear ${member.name},\n\nYour salary payment has been processed.\nAmount: ${newEntry.amount}\nDate: ${newEntry.date}\n${newEntry.note ? 'Note: ' + newEntry.note + '\n' : ''}\nThank you!\n${shop.name}`,
         shopName: shop.name,
+        emailCfg: emailSettings,
       });
     }
   };

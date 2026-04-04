@@ -57,38 +57,58 @@ function CountUp({ to, duration = 900, className = '' }) {
 
 /* Mini animated SVG sparkline */
 function MiniSparkline({ values = [], color = '#34d399', delay = 0, colorClass = '' }) {
-  const W = 160, H = 40, PAD = 4;
+  const W = 200, H = 56, PAD = 6;
   const max = Math.max(...values, 1);
   const pts = values.map((v, i) => {
     const x = PAD + (i / (values.length - 1)) * (W - PAD * 2);
     const y = H - PAD - ((v / max) * (H - PAD * 2));
     return [x, y];
   });
-  // smooth bezier path
-  const path = pts.reduce((acc, [x, y], i) => {
-    if (i === 0) return `M${x},${y}`;
-    const [px, py] = pts[i - 1];
-    const cx = (px + x) / 2;
-    return `${acc} C${cx},${py} ${cx},${y} ${x},${y}`;
-  }, '');
+  // sharp angular path (stock market style)
+  const path = pts.map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`)).join(' ');
   const areaPath = `${path} L${pts[pts.length-1][0]},${H} L${pts[0][0]},${H} Z`;
   const id = `spark-${color.replace(/[^a-z0-9]/gi,'')}-${delay}`;
+  const glowId = `glow-${id}`;
+  // Grid lines
+  const gridLines = [0.25, 0.5, 0.75].map((f) => H - PAD - f * (H - PAD * 2));
   return (
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="spark-svg" style={{ animationDelay: `${delay}ms` }}>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.28" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+          <stop offset="60%" stopColor={color} stopOpacity="0.08" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
+        <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
       </defs>
+      {/* Background grid */}
+      {gridLines.map((gy, i) => (
+        <line key={i} x1={PAD} y1={gy} x2={W - PAD} y2={gy} stroke="rgba(0,0,0,0.04)" strokeWidth="0.5" strokeDasharray="4,3" />
+      ))}
+      {/* Vertical day markers */}
+      {pts.map(([x], i) => (
+        <line key={`v${i}`} x1={x} y1={PAD} x2={x} y2={H - PAD} stroke="rgba(0,0,0,0.025)" strokeWidth="0.5" />
+      ))}
       {/* Area fill */}
       <path d={areaPath} fill={`url(#${id})`} />
-      {/* Line */}
-      <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      {/* Glow line (behind) */}
+      <path d={path} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" opacity="0.2" filter={`url(#${glowId})`} />
+      {/* Main line */}
+      <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
         className="spark-line" style={{ '--spark-delay': `${delay}ms` }} />
+      {/* Data point dots */}
+      {pts.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={i === pts.length - 1 ? 0 : 1.8} fill="white" stroke={color} strokeWidth="1.2" opacity="0.6" />
+      ))}
       {/* Last dot pulse */}
-      <circle cx={pts[pts.length-1][0]} cy={pts[pts.length-1][1]} r="3" fill={color} className="spark-dot" style={{ animationDelay: `${delay + 500}ms` }} />
-      <circle cx={pts[pts.length-1][0]} cy={pts[pts.length-1][1]} r="5" fill={color} opacity="0.25" className="spark-pulse" style={{ animationDelay: `${delay + 500}ms` }} />
+      <circle cx={pts[pts.length-1][0]} cy={pts[pts.length-1][1]} r="3.5" fill={color} className="spark-dot" style={{ animationDelay: `${delay + 500}ms` }} />
+      <circle cx={pts[pts.length-1][0]} cy={pts[pts.length-1][1]} r="7" fill={color} opacity="0.2" className="spark-pulse" style={{ animationDelay: `${delay + 500}ms` }} />
+      {/* Crosshair on last point */}
+      <line x1={pts[pts.length-1][0]} y1={PAD} x2={pts[pts.length-1][0]} y2={H - PAD} stroke={color} strokeWidth="0.5" strokeDasharray="2,2" opacity="0.4" />
+      <line x1={PAD} y1={pts[pts.length-1][1]} x2={W - PAD} y2={pts[pts.length-1][1]} stroke={color} strokeWidth="0.5" strokeDasharray="2,2" opacity="0.3" />
     </svg>
   );
 }
@@ -158,10 +178,11 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '' });
   const [contactFormOpen, setContactFormOpen] = useState(false);
   const [emailCfgOpen, setEmailCfgOpen] = useState(false);
-  const [emailCfgForm, setEmailCfgForm] = useState({ serviceId: '', templateId: '', publicKey: '', ownerEmail: 'infokamilstoreitalia@gmail.com' });
+  const [emailCfgForm, setEmailCfgForm] = useState({ brevoApiKey: '', brevoSenderEmail: '', ownerEmail: 'infokamilstoreitalia@gmail.com' });
   const [emailCfgSaved, setEmailCfgSaved] = useState(false);
   const [addTxOpen, setAddTxOpen] = useState(false);
   const [txDetailModal, setTxDetailModal] = useState(null); // null | 'income' | 'expense'
+  const [posPopupOpen, setPosPopupOpen] = useState(false);
   const [summaryDate, setSummaryDate] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -188,9 +209,8 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
   useEffect(() => {
     if (emailSettings) {
       setEmailCfgForm({
-        serviceId: emailSettings.serviceId || '',
-        templateId: emailSettings.templateId || '',
-        publicKey: emailSettings.publicKey || '',
+        brevoApiKey: emailSettings.brevoApiKey || '',
+        brevoSenderEmail: emailSettings.brevoSenderEmail || '',
         ownerEmail: emailSettings.ownerEmail || 'infokamilstoreitalia@gmail.com'
       });
     }
@@ -201,7 +221,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
   // Repairs state
   const [repairFilter, setRepairFilter] = useState('all');
   const [addRepairOpen, setAddRepairOpen] = useState(false);
-  const [repairForm, setRepairForm] = useState({ customerName: '', phone: '', device: '', issue: '', partsOrdered: '', partsCost: '', repairCost: '', advance: '', notes: '', email: '' });
+  const [repairForm, setRepairForm] = useState({ customerName: '', phone: '', device: '', issue: '', partsOrdered: '', partsCost: '', repairCost: '', advance: '', notes: '', email: '', paymentMethod: 'cash' });
   const [repairFormError, setRepairFormError] = useState('');
   const [repairDeleteId, setRepairDeleteId] = useState(null);
   // Repair payment system
@@ -209,6 +229,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
   const [repairPayAmt, setRepairPayAmt] = useState('');
   const [repairPayNote, setRepairPayNote] = useState('');
   const [repairPayError, setRepairPayError] = useState('');
+  const [repairPayMethod, setRepairPayMethod] = useState('cash');
   // Order system per repair
   const [orderOpenId, setOrderOpenId] = useState(null); // repairId whose order form is open
   const [orderForm, setOrderForm] = useState({ item: '', cost: '', supplier: '' });
@@ -216,10 +237,11 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
 
   // Advances state
   const [addAdvanceOpen, setAddAdvanceOpen] = useState(false);
-  const [advanceForm, setAdvanceForm] = useState({ customerName: '', phone: '', description: '', totalAmount: '', advancePaid: '', productCost: '', email: '' });
+  const [advanceForm, setAdvanceForm] = useState({ customerName: '', phone: '', description: '', totalAmount: '', advancePaid: '', productCost: '', email: '', paymentMethod: 'cash' });
   const [advanceFormError, setAdvanceFormError] = useState('');
   const [advancePayOpen, setAdvancePayOpen] = useState(null);
   const [advancePayAmt, setAdvancePayAmt] = useState('');
+  const [advancePayMethod, setAdvancePayMethod] = useState('cash');
   const [advanceCostOpen, setAdvanceCostOpen] = useState(null);
   const [advanceCostAmt, setAdvanceCostAmt] = useState('');
   const [advanceDeleteId, setAdvanceDeleteId] = useState(null);
@@ -273,7 +295,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
 
   // WhatsApp Send All — step-by-step wizard (no auto-navigate, user taps each)
 
-  const { revenue, expenses, profit, txCount } = useMemo(() => {
+  const { revenue, expenses, profit, txCount, posCard, posCash } = useMemo(() => {
     const txs = activeShop?.transactions || [];
     const sh = activeShop?.secondhand || [];
     const repairs = activeShop?.repairs || [];
@@ -316,7 +338,20 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
 
     const revenue = txIncome + shIncome + repIncome + advIncome;
     const expenses = txExpense + shExpense + repExpense + advExpense;
-    return { revenue, expenses, profit: revenue - expenses, txCount: txs.length };
+
+    // POS card totals
+    const posCard = txs.filter(t => t.type === 'income' && t.paymentMethod === 'card').reduce((s, t) => s + (Number(t.amount) || 0), 0)
+      + repairs.reduce((s, r) => {
+        let c = 0;
+        if (r.paymentMethod === 'card') c += (Number(r.advance) || 0);
+        (r.payments || []).forEach(p => { if (p.paymentMethod === 'card') c += (Number(p.amount) || 0); });
+        if (r.paymentMethod === 'card' && ['ready', 'delivered', 'completed'].includes(r.status)) c += (Number(r.repairCost) || 0);
+        return s + c;
+      }, 0)
+      + advances.flatMap(a => (a.payments || []).filter(p => p.paymentMethod === 'card').map(p => Number(p.amount) || 0)).reduce((s, v) => s + v, 0);
+    const posCash = revenue - posCard;
+
+    return { revenue, expenses, profit: revenue - expenses, txCount: txs.length, posCard, posCash };
   }, [activeShop]);
 
   const filteredTx = useMemo(() => {
@@ -465,6 +500,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
       advance: repairForm.advance ? Number(repairForm.advance) : 0,
       notes: repairForm.notes.trim(),
       email: repairForm.email.trim(),
+      paymentMethod: repairForm.paymentMethod || 'cash',
     });
     if (repairForm.phone.trim() || repairForm.email.trim()) {
       addOrUpdateContact({
@@ -473,7 +509,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
         phone: repairForm.phone.trim(),
       });
     }
-    setRepairForm({ customerName: '', phone: '', device: '', issue: '', partsOrdered: '', partsCost: '', repairCost: '', advance: '', notes: '', email: '' });
+    setRepairForm({ customerName: '', phone: '', device: '', issue: '', partsOrdered: '', partsCost: '', repairCost: '', advance: '', notes: '', email: '', paymentMethod: 'cash' });
     setAddRepairOpen(false);
     setRepairFormError('');
   };
@@ -493,6 +529,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
       remaining: total - paid,
       status: paid >= total ? 'cleared' : paid > 0 ? 'partial' : 'pending',
       email: advanceForm.email.trim(),
+      paymentMethod: advanceForm.paymentMethod || 'cash',
     });
     if (advanceForm.phone.trim() || advanceForm.email.trim()) {
       addOrUpdateContact({
@@ -508,9 +545,10 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
         subject: `Advance Confirmation – ${activeShop?.name}`,
         message: `Dear ${advanceForm.customerName.trim()},\n\nYour advance has been recorded.\nDescription: ${advanceForm.description.trim() || 'N/A'}\nTotal Amount: ${total}\nAdvance Paid: ${paid}\nRemaining: ${total - paid}\n\nThank you!\n${activeShop?.name}`,
         shopName: activeShop?.name,
+        emailCfg: emailSettings,
       });
     }
-    setAdvanceForm({ customerName: '', phone: '', description: '', totalAmount: '', advancePaid: '', productCost: '', email: '' });
+    setAdvanceForm({ customerName: '', phone: '', description: '', totalAmount: '', advancePaid: '', productCost: '', email: '', paymentMethod: 'cash' });
     setAddAdvanceOpen(false);
     setAdvanceFormError('');
   };
@@ -521,7 +559,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
     const newPaid = (adv.advancePaid || 0) + extra;
     const newRemaining = Math.max(0, (adv.totalAmount || 0) - newPaid);
     const newStatus = newRemaining <= 0 ? 'cleared' : 'partial';
-    const payment = { id: `p-${Date.now()}`, amount: extra, date: new Date().toISOString().split('T')[0] };
+    const payment = { id: `p-${Date.now()}`, amount: extra, date: new Date().toISOString().split('T')[0], paymentMethod: advancePayMethod };
     updateAdvance(activeShop.id, adv.id, {
       advancePaid: newPaid,
       remaining: newRemaining,
@@ -535,9 +573,11 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
         subject: `Account Cleared – ${activeShop.name}`,
         message: `Dear ${adv.customerName},\n\nYour account has been fully cleared.\nTotal paid: ${adv.totalAmount}\n\nThank you for your business!\n${activeShop.name}`,
         shopName: activeShop.name,
+        emailCfg: emailSettings,
       });
     }
     setAdvancePayAmt('');
+    setAdvancePayMethod('cash');
     setAdvancePayOpen(null);
   };
 
@@ -559,12 +599,12 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-8">
 
       {/* Shop Hero Banner */}
-      <div className="rounded-3xl overflow-hidden shadow-xl" style={{ backgroundColor: '#7f4f24' }}>
+      <div className="rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl" style={{ backgroundColor: '#7f4f24' }}>
         {/* Top section — shop info + add button */}
-        <div className="px-5 sm:px-7 pt-5 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="px-3 sm:px-7 pt-4 sm:pt-5 pb-3 sm:pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-4">
             {/* Shop avatar */}
             {activeShop.image ? (
@@ -692,6 +732,10 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
           // ── Filtered figures (daily / monthly / alltime via matchDate) ──
           const todayTxIncome = txs.filter((t) => matchDate(t.date) && t.type === 'income').reduce((s, t) => s + (Number(t.amount) || 0), 0);
           const todayTxExpense = txs.filter((t) => matchDate(t.date) && t.type === 'expense').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+          const todayCardIncome = txs.filter((t) => matchDate(t.date) && t.type === 'income' && t.paymentMethod === 'card').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+          const todayCashIncome = todayTxIncome - todayCardIncome;
+          const todayCardTxCount = txs.filter((t) => matchDate(t.date) && t.type === 'income' && t.paymentMethod === 'card').length;
+          const todayCashTxCount = txs.filter((t) => matchDate(t.date) && t.type === 'income' && (!t.paymentMethod || t.paymentMethod === 'cash')).length;
           const todayShIncome = secondhand.filter((i) => i.status === 'sold' && matchDate(i.sellDate)).reduce((s, i) => s + (Number(i.sellPrice) || 0), 0);
           const todayShExpense = secondhand.filter((i) => matchDate(i.buyDate)).reduce((s, i) => s + (Number(i.buyPrice) || 0), 0);
           const todayRepExpense = repairs
@@ -805,13 +849,30 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
               + advances.flatMap((a) => (a.payments || []).filter((p) => md(p.date)).map((p) => Number(p.amount) || 0)).reduce((s, v) => s + v, 0)
             ) : 0;
 
+            // Card payment tracking per day
+            const txCardInc = txs.filter((t) => t.date === ds && t.type === 'income' && t.paymentMethod === 'card').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+            const txCardExp = txs.filter((t) => t.date === ds && t.type === 'expense' && t.paymentMethod === 'card').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+            const repCardInc = hasService('repairs') ? (
+              repairs.filter((r) => md(r.feeReceivedAt || r.updatedAt || r.createdAt) && ['ready','delivered','completed'].includes(r.status) && r.paymentMethod === 'card').reduce((s, r) => s + (Number(r.repairCost) || 0), 0)
+              + repairs.filter((r) => md(r.advanceReceivedAt || r.createdAt) && !['ready','delivered','completed'].includes(r.status) && r.paymentMethod === 'card').reduce((s, r) => s + (Number(r.advance) || 0), 0)
+            ) : 0;
+            const advCardInc = hasService('advances') ? advances.flatMap((a) => (a.payments || []).filter((p) => md(p.date) && p.paymentMethod === 'card').map((p) => Number(p.amount) || 0)).reduce((s, v) => s + v, 0) : 0;
+            const cardInc = txCardInc + repCardInc + advCardInc;
+            const cardExp = txCardExp;
+
             const inc = txInc + shInc + repInc + advInc;
             const exp = txExp + shExp + repExp + advExp;
-            return { inc, exp, profit: inc - exp };
+            return { inc, exp, profit: inc - exp, cardInc, cardExp };
           });
           const spark7Inc = last7.map((d) => d.inc);
           const spark7Exp = last7.map((d) => d.exp);
           const spark7Prof = last7.map((d) => Math.max(d.profit, 0));
+          const total7Inc = spark7Inc.reduce((a, b) => a + b, 0);
+          const total7Exp = spark7Exp.reduce((a, b) => a + b, 0);
+          const total7CardInc = last7.reduce((s, d) => s + d.cardInc, 0);
+          const total7CardExp = last7.reduce((s, d) => s + d.cardExp, 0);
+          const total7CashInc = total7Inc - total7CardInc;
+          const total7CashExp = total7Exp - total7CardExp;
 
           // ── Ring progress ──
           const ringTotal = income + expense > 0 ? income + expense : 1;
@@ -884,8 +945,8 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
           };
 
           return (
-            <div className="rounded-3xl overview-section-animate" style={{ animationDelay: '0ms' }}>
-            <div className="rounded-3xl overflow-hidden shadow-xl" style={{ background: '#f1f5f9', border: '1px solid #e2e8f0' }}>
+            <div className="rounded-2xl sm:rounded-3xl overview-section-animate" style={{ animationDelay: '0ms' }}>
+            <div className="rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl" style={{ background: '#f1f5f9', border: '1px solid #e2e8f0' }}>
               {/* Header — pill tabs + date picker */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-3 py-3 bg-white border-b border-gray-100 gap-2">
                 {/* Mode tabs */}
@@ -935,10 +996,10 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
               </div>
 
               {/* Metric cards */}
-              <div className="p-4 flex flex-col gap-4">
+              <div className="p-2.5 sm:p-4 flex flex-col gap-3 sm:gap-4">
 
-                {/* ── Main 3: Income / Expenses / Net Profit ── */}
-                <div className="grid grid-cols-3 gap-3">
+                {/* ── Main 3 + POS: Income / Expenses / Net Profit / POS ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                   {rows.filter(r => r.cat === 'main').map((r, i) => {
                     const isIncome   = r.bg.includes('emerald');
                     const isExpenses = r.bg.includes('red') && !r.bg.includes('amber');
@@ -949,9 +1010,10 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                     const fullShadow = isIncome
                       ? '0 8px 28px rgba(16,185,129,0.45)'
                       : '0 8px 28px rgba(239,68,68,0.4)';
-                    const clickable = isIncome || isExpenses;
+                    const isProfit   = !isIncome && !isExpenses && r.bg.includes('amber');
+                    const clickable = isIncome || isExpenses || isProfit;
                     const handleClick = clickable
-                      ? () => setTxDetailModal(isIncome ? 'income' : 'expense')
+                      ? () => setTxDetailModal(isIncome ? 'income' : isExpenses ? 'expense' : 'profit')
                       : undefined;
                     return (
                       <div
@@ -996,6 +1058,28 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                       </div>
                     );
                   })}
+
+                  {/* POS Payment Card */}
+                  <div
+                    onClick={() => setPosPopupOpen(true)}
+                    className="kpi-card summary-card-animate group relative rounded-2xl overflow-hidden select-none cursor-pointer"
+                    style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%)', animationDelay: '180ms', boxShadow: '0 8px 28px rgba(59,130,246,0.4)' }}
+                  >
+                    <div className="px-4 pt-4 pb-4 flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xl sm:text-2xl font-black text-white leading-none tracking-tight mb-1.5">
+                          <CountUp to={fmt(posCard)} />
+                        </p>
+                        <p className="text-[9px] font-black text-white/75 uppercase tracking-[0.18em]">POS / CARD</p>
+                      </div>
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-white/20 shrink-0 transition-all duration-300 group-hover:scale-110 group-hover:bg-white/30">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none shimmer-sweep" />
+                  </div>
                 </div>
 
                 {/* ── Categorized other metrics ── */}
@@ -1020,7 +1104,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                           <div className="flex-1 h-px bg-slate-200" />
                         </div>
                         {/* Cards */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
                           {catRows.map((r, i) => (
                             <div
                               key={r.label}
@@ -1071,7 +1155,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                     <>
                       {/* GENERAL + ADVANCES + CONTACTS — single flat row, no headers */}
                       {topCats.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
                           {topCats.map((cat) => {
                             const catRows = rows.filter((r) => r.cat === cat);
                             const startIdx = globalIdx;
@@ -1106,7 +1190,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
               </div>
 
               {/* ── Sparkline + Ring row ── */}
-              <div className="mx-4 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="mx-2.5 sm:mx-4 mb-3 sm:mb-4 grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
 
                 {/* Income sparkline */}
                 <div className="kpi-card accent-emerald summary-card-animate rounded-2xl overflow-hidden bg-white" style={{ boxShadow: '0 4px 14px rgba(0,0,0,0.07)', animationDelay: '450ms' }}>
@@ -1117,6 +1201,20 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                       <span className="text-[10px] font-black text-emerald-600">{fmt(spark7Inc.reduce((a, b) => a + b, 0))}</span>
                     </div>
                     <MiniSparkline values={spark7Inc} color="#34d399" delay={0} />
+                    <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap">
+                      <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-50 border border-blue-100">
+                        <span className="text-[7px] sm:text-[8px]">💳</span>
+                        <span className="text-[7px] sm:text-[8px] font-black text-blue-600 tabular-nums">{fmt(total7CardInc)}</span>
+                        <span className={`text-[7px] font-black ${total7CardInc > 0 ? 'text-emerald-500' : 'text-gray-400'}`}>{total7CardInc > 0 ? '▲' : '–'}</span>
+                        {total7Inc > 0 && <span className="text-[7px] font-bold text-blue-400 tabular-nums">{Math.round((total7CardInc / total7Inc) * 100)}%</span>}
+                      </div>
+                      <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100">
+                        <span className="text-[7px] sm:text-[8px]">💵</span>
+                        <span className="text-[7px] sm:text-[8px] font-black text-emerald-700 tabular-nums">{fmt(total7CashInc)}</span>
+                        <span className={`text-[7px] font-black ${total7CashInc > 0 ? 'text-emerald-500' : 'text-gray-400'}`}>{total7CashInc > 0 ? '▲' : '–'}</span>
+                        {total7Inc > 0 && <span className="text-[7px] font-bold text-emerald-400 tabular-nums">{Math.round((total7CashInc / total7Inc) * 100)}%</span>}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1129,6 +1227,20 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                       <span className="text-[10px] font-black text-red-500">{fmt(spark7Exp.reduce((a, b) => a + b, 0))}</span>
                     </div>
                     <MiniSparkline values={spark7Exp} color="#f87171" delay={100} />
+                    <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap">
+                      <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-50 border border-blue-100">
+                        <span className="text-[7px] sm:text-[8px]">💳</span>
+                        <span className="text-[7px] sm:text-[8px] font-black text-blue-600 tabular-nums">{fmt(total7CardExp)}</span>
+                        <span className={`text-[7px] font-black ${total7CardExp > 0 ? 'text-red-500' : 'text-gray-400'}`}>{total7CardExp > 0 ? '▼' : '–'}</span>
+                        {total7Exp > 0 && <span className="text-[7px] font-bold text-blue-400 tabular-nums">{Math.round((total7CardExp / total7Exp) * 100)}%</span>}
+                      </div>
+                      <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-red-50 border border-red-100">
+                        <span className="text-[7px] sm:text-[8px]">💵</span>
+                        <span className="text-[7px] sm:text-[8px] font-black text-red-600 tabular-nums">{fmt(total7CashExp)}</span>
+                        <span className={`text-[7px] font-black ${total7CashExp > 0 ? 'text-red-500' : 'text-gray-400'}`}>{total7CashExp > 0 ? '▼' : '–'}</span>
+                        {total7Exp > 0 && <span className="text-[7px] font-bold text-red-400 tabular-nums">{Math.round((total7CashExp / total7Exp) * 100)}%</span>}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1166,11 +1278,200 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                         <span className="text-[9px] text-gray-400 truncate">Net</span>
                         <span className={`ml-auto text-[10px] font-black ${profit >= 0 ? 'text-amber-500' : 'text-red-500'}`}>{profit >= 0 ? '+' : ''}{fmt(profit)}</span>
                       </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+                        <span className="text-[9px] text-gray-400 truncate">💳 POS</span>
+                        <span className="ml-auto text-[10px] font-bold text-blue-500">{fmt(posCard)}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-gray-300 shrink-0" />
+                        <span className="text-[9px] text-gray-400 truncate">💵 Cash</span>
+                        <span className="ml-auto text-[10px] font-bold text-gray-500">{fmt(posCash)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+            </div>
+          );
+        })()}
+
+        {/* ── POS Payment Overview Card ── */}
+        {(() => {
+          const txs = activeShop.transactions || [];
+          const repairs = activeShop.repairs || [];
+          const advances = activeShop.advances || [];
+
+          // ── Build unified income entries with paymentMethod ──
+          const posEntries = [];
+
+          // 1. Regular transactions (income only)
+          txs.filter((t) => t.type === 'income').forEach((t) => {
+            posEntries.push({ amount: Number(t.amount) || 0, method: t.paymentMethod || 'cash', date: t.date || '', description: t.description || '—', category: t.category || '', id: t.id });
+          });
+
+          // 2. Repair income: advance (initial) + payments + repairCost (when done)
+          repairs.forEach((r) => {
+            const initAdv = Number(r.initialAdvance ?? r.advance ?? 0);
+            // Initial advance recorded at creation
+            if (initAdv > 0) {
+              posEntries.push({ amount: initAdv, method: r.paymentMethod || 'cash', date: (r.advanceReceivedAt || r.createdAt || '').slice(0, 10), description: `Repair Advance: ${r.customerName} — ${r.device}`, category: 'Repair', id: `rep-adv-${r.id}` });
+            }
+            // Individual payments added later
+            (r.payments || []).forEach((p) => {
+              posEntries.push({ amount: Number(p.amount) || 0, method: p.paymentMethod || 'cash', date: p.date || '', description: `Repair Payment: ${r.customerName}`, category: 'Repair', id: `rep-pay-${r.id}-${p.id}` });
+            });
+            // Repair fee (when status is ready/delivered/completed)
+            if (Number(r.repairCost) > 0 && ['ready', 'delivered', 'completed'].includes(r.status)) {
+              posEntries.push({ amount: Number(r.repairCost), method: r.paymentMethod || 'cash', date: (r.feeReceivedAt || r.updatedAt || r.createdAt || '').slice(0, 10), description: `Repair Fee: ${r.customerName}`, category: 'Repair', id: `rep-fee-${r.id}` });
+            }
+          });
+
+          // 3. Advance income: initial advancePaid + subsequent payments
+          advances.forEach((a) => {
+            if (Number(a.advancePaid) > 0) {
+              posEntries.push({ amount: Number(a.advancePaid), method: a.paymentMethod || 'cash', date: (a.date || '').slice(0, 10), description: `Advance: ${a.customerName}`, category: 'Advance', id: `adv-init-${a.id}` });
+            }
+            (a.payments || []).forEach((p) => {
+              posEntries.push({ amount: Number(p.amount) || 0, method: p.paymentMethod || 'cash', date: p.date || '', description: `Advance Payment: ${a.customerName}`, category: 'Advance', id: `adv-pay-${a.id}-${p.id}` });
+            });
+          });
+
+          const allCardEntries = posEntries.filter((e) => e.method === 'card');
+          const allCashEntries = posEntries.filter((e) => e.method !== 'card');
+          const totalCard = allCardEntries.reduce((s, e) => s + e.amount, 0);
+          const totalCash = allCashEntries.reduce((s, e) => s + e.amount, 0);
+          const totalAll = totalCard + totalCash;
+          const cardPct = totalAll > 0 ? Math.round((totalCard / totalAll) * 100) : 0;
+          const cashPct = totalAll > 0 ? 100 - cardPct : 0;
+
+          // Last 5 card entries
+          const recentCard = [...allCardEntries].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5);
+
+          // Per-day totals for last 7 days
+          const last7 = Array.from({ length: 7 }, (_, i) => {
+            const dt = new Date(); dt.setDate(dt.getDate() - (6 - i));
+            const ds = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+            const dayCard = allCardEntries.filter((e) => (e.date || '').slice(0, 10) === ds).reduce((s, e) => s + e.amount, 0);
+            const dayCash = allCashEntries.filter((e) => (e.date || '').slice(0, 10) === ds).reduce((s, e) => s + e.amount, 0);
+            return { ds, card: dayCard, cash: dayCash };
+          });
+          const maxDay = Math.max(...last7.map((d) => d.card + d.cash), 1);
+
+          return (
+            <div className="rounded-2xl overflow-hidden shadow-lg border border-gray-200 overview-section-animate" style={{ animationDelay: '60ms' }}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3.5" style={{ background: 'linear-gradient(135deg, #7a4f2a 0%, #a06835 100%)' }}>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-xs font-extrabold text-white uppercase tracking-wider">{t('posPayments')}</h2>
+                    <p className="text-[10px] text-white/45 leading-tight">{t('cashVsCard')}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary strip */}
+              <div className="grid grid-cols-3 divide-x divide-gray-100 bg-gray-50 border-b border-gray-100">
+                <div className="px-4 py-3 text-center">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase">{t('cardPOS')}</p>
+                  <p className="text-sm font-black text-blue-600">{fmt(totalCard)}</p>
+                  <p className="text-[9px] text-blue-400">{allCardEntries.length} txn · {cardPct}%</p>
+                </div>
+                <div className="px-4 py-3 text-center">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase">{t('cash')}</p>
+                  <p className="text-sm font-black text-emerald-600">{fmt(totalCash)}</p>
+                  <p className="text-[9px] text-emerald-400">{allCashEntries.length} txn · {cashPct}%</p>
+                </div>
+                <div className="px-4 py-3 text-center">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase">{t('total')}</p>
+                  <p className="text-sm font-black text-gray-800">{fmt(totalAll)}</p>
+                  <p className="text-[9px] text-gray-400">{posEntries.length} txn</p>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              {totalAll > 0 && (
+                <div className="px-5 py-3 bg-white border-b border-gray-100">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                      <span className="text-[10px] font-bold text-blue-600">{t('cardPOS')} {cardPct}%</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] font-bold text-emerald-600">{t('cash')} {cashPct}%</span>
+                    </div>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden flex">
+                    <div className="h-full bg-blue-500 rounded-l-full transition-all" style={{ width: `${cardPct}%` }} />
+                    <div className="h-full bg-emerald-500 rounded-r-full transition-all" style={{ width: `${cashPct}%` }} />
+                  </div>
+                </div>
+              )}
+
+              {/* 7-day mini chart */}
+              <div className="px-5 py-3 bg-white border-b border-gray-100">
+                <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">{t('last7Days')}</p>
+                <div className="flex items-end gap-1.5" style={{ height: 48 }}>
+                  {last7.map((d, i) => {
+                    const total = d.card + d.cash;
+                    const h = total > 0 ? Math.max((total / maxDay) * 48, 4) : 2;
+                    const cardH = total > 0 ? (d.card / total) * h : 0;
+                    const cashH = h - cardH;
+                    const dayLabel = new Date(d.ds + 'T00:00:00').toLocaleDateString(locale, { weekday: 'narrow' });
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                        <div className="w-full flex flex-col items-stretch rounded-md overflow-hidden" style={{ height: h }}>
+                          {cashH > 0 && <div className="bg-emerald-400" style={{ height: cashH }} />}
+                          {cardH > 0 && <div className="bg-blue-500" style={{ height: cardH }} />}
+                        </div>
+                        <span className="text-[8px] text-gray-400">{dayLabel}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Recent card transactions */}
+              {recentCard.length > 0 && (
+                <div className="bg-white">
+                  <p className="px-5 pt-3 text-[10px] font-bold text-gray-400 uppercase">{t('recentCardPayments')}</p>
+                  <div className="divide-y divide-gray-50">
+                    {recentCard.map((tx) => (
+                      <div key={tx.id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-blue-50/30 transition-colors">
+                        <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                          <svg className="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-800 truncate">{tx.description || '—'}</p>
+                          <p className="text-[9px] text-gray-400">{tx.date ? fmtDate(tx.date) : '—'}{tx.category ? ` · ${tx.category}` : ''}</p>
+                        </div>
+                        <span className="text-xs font-black text-blue-600">+{fmt(Number(tx.amount) || 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {totalAll === 0 && (
+                <div className="px-5 py-8 text-center bg-white">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mx-auto mb-2">
+                    <svg className="w-5 h-5 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-500">{t('noPosPayments')}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{t('noPosPaymentsSub')}</p>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -1274,7 +1575,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
         })()}
         {/* ── Team + Revenue: 2-card single column ── */}
         {(hasService('team') && activeShop.team && activeShop.team.length > 0) || revenue > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
 
             {/* TEAM CARD */}
             {hasService('team') && activeShop.team && activeShop.team.length > 0 && (() => {
@@ -1432,6 +1733,241 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
           </div>
         ) : null}
 
+        {/* ── Reports Overview Card (Current Month) ── */}
+        {hasService('reports') && (() => {
+          const txs = activeShop.transactions || [];
+          const repairs = activeShop.repairs || [];
+          const advances = activeShop.advances || [];
+          const skus = activeShop.skus || [];
+          const secondhand = activeShop.secondhand || [];
+          const team = activeShop.team || [];
+
+          const now = new Date();
+          const curMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+          const inMonth = (v) => (v || '').slice(0, 7) === curMonth;
+          const monthLabel = now.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+
+          // Transactions
+          const mTxIncome = txs.filter((t) => inMonth(t.date) && t.type === 'income').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+          const mTxExpense = txs.filter((t) => inMonth(t.date) && t.type === 'expense').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+          const mTxCount = txs.filter((t) => inMonth(t.date)).length;
+          const mTxCardIncome = txs.filter((t) => inMonth(t.date) && t.type === 'income' && t.paymentMethod === 'card').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+          const mTxCardExpense = txs.filter((t) => inMonth(t.date) && t.type === 'expense' && t.paymentMethod === 'card').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+
+          // Repairs
+          const mRepairs = repairs.filter((r) => inMonth(r.createdAt));
+          const mRepDone = repairs.filter((r) => inMonth(r.updatedAt) && ['ready','delivered','completed'].includes(r.status));
+          const mRepParts = mRepairs.reduce((s, r) => s + (Number(r.partsCost) || 0), 0);
+          const mRepAdv = mRepairs.reduce((s, r) => s + (Number(r.advance) || 0), 0);
+          const mRepFee = mRepDone.reduce((s, r) => s + (Number(r.repairCost) || 0), 0);
+          const mRepCardInc = mRepairs.filter((r) => r.paymentMethod === 'card').reduce((s, r) => s + (Number(r.advance) || 0), 0)
+            + mRepDone.filter((r) => r.paymentMethod === 'card').reduce((s, r) => s + (Number(r.repairCost) || 0), 0);
+
+          // Advances
+          const mAdvances = advances.filter((a) => inMonth(a.date));
+          const mAdvGiven = mAdvances.reduce((s, a) => s + (Number(a.advancePaid) || 0), 0);
+          const mAdvPayments = advances.flatMap((a) => (a.payments || []).filter((p) => inMonth(p.date)));
+          const mAdvReceived = mAdvPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+          const mAdvDue = advances.reduce((s, a) => s + (Number(a.remaining) || 0), 0);
+          const mAdvCardInc = mAdvPayments.filter((p) => p.paymentMethod === 'card').reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
+          // Inventory
+          const mMov = skus.flatMap((sk) => (sk.movements || []).filter((m) => inMonth(m.date)).map((m) => ({ ...m, skuName: sk.name })));
+          const mInvIn = mMov.filter((m) => m.type === 'in');
+          const mInvOut = mMov.filter((m) => m.type === 'out');
+          const mInvInExp = mInvIn.reduce((s, m) => s + ((Number(m.price) || 0) * (Number(m.qty) || 1)), 0);
+          const mInvOutInc = mInvOut.reduce((s, m) => s + ((Number(m.price) || 0) * (Number(m.qty) || 1)), 0);
+
+          // Secondhand
+          const mShBought = secondhand.filter((i) => inMonth(i.buyDate));
+          const mShSold = secondhand.filter((i) => i.status === 'sold' && inMonth(i.sellDate));
+          const mShBoughtCost = mShBought.reduce((s, i) => s + (Number(i.buyPrice) || 0), 0);
+          const mShSoldRev = mShSold.reduce((s, i) => s + (Number(i.sellPrice) || 0), 0);
+
+          // Team
+          const mActiveTeam = team.filter((m) => m.status === 'active');
+          const mPayroll = mActiveTeam.reduce((s, m) => s + (Number(m.salary) || 0), 0);
+
+          // Grand totals
+          const gIncome = mTxIncome + mRepAdv + mRepFee + mAdvReceived + mInvOutInc + mShSoldRev;
+          const gExpense = mTxExpense + mRepParts + mAdvGiven + mInvInExp + mShBoughtCost;
+          const gProfit = gIncome - gExpense;
+          const gCardIncome = mTxCardIncome + mRepCardInc + mAdvCardInc;
+          const gCashIncome = gIncome - gCardIncome;
+          const gCardExpense = mTxCardExpense;
+          const gCashExpense = gExpense - gCardExpense;
+
+          const hasData = mTxCount > 0 || mRepairs.length > 0 || mAdvances.length > 0 || mMov.length > 0 || mShBought.length > 0 || mShSold.length > 0;
+
+          const incPct = gIncome + gExpense > 0 ? Math.round((gIncome / (gIncome + gExpense)) * 100) : 50;
+
+          const modules = [
+            { label: t('transactions'), income: mTxIncome, expense: mTxExpense, count: mTxCount, unit: t('entries'), color: 'blue', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /> },
+            ...(hasService('repairs') ? [{ label: t('tab_repairs'), income: mRepAdv + mRepFee, expense: mRepParts, count: mRepairs.length, unit: 'jobs', color: 'amber', icon: <><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></> }] : []),
+            ...(hasService('advances') ? [{ label: t('tab_advances'), income: mAdvReceived, expense: mAdvGiven, count: mAdvances.length, unit: t('entries'), color: 'purple', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /> }] : []),
+            ...(hasService('inventory') ? [{ label: t('tab_inventory'), income: mInvOutInc, expense: mInvInExp, count: mMov.length, unit: 'movements', color: 'sky', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /> }] : []),
+            ...(hasService('secondhand') ? [{ label: t('tab_secondhand'), income: mShSoldRev, expense: mShBoughtCost, count: mShBought.length + mShSold.length, unit: 'items', color: 'emerald', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /> }] : []),
+          ];
+
+          const colorMap = { blue: { bg: 'bg-blue-50', text: 'text-blue-600', dot: 'bg-blue-400', bar: '#3b82f6' }, amber: { bg: 'bg-amber-50', text: 'text-amber-600', dot: 'bg-amber-400', bar: '#f59e0b' }, purple: { bg: 'bg-purple-50', text: 'text-purple-600', dot: 'bg-purple-400', bar: '#8b5cf6' }, sky: { bg: 'bg-sky-50', text: 'text-sky-600', dot: 'bg-sky-400', bar: '#0ea5e9' }, emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', dot: 'bg-emerald-400', bar: '#10b981' } };
+
+          return (
+            <div className="rounded-2xl overflow-hidden shadow-lg border border-gray-200 overview-section-animate" style={{ animationDelay: '200ms' }}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3.5" style={{ background: 'linear-gradient(135deg, #7a4f2a 0%, #a06835 100%)' }}>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">{t('tab_reports')} — {monthLabel}</h3>
+                    <p className="text-[10px] text-white/50 leading-tight">{activeShop.name || 'Shop'} · Monthly Snapshot</p>
+                  </div>
+                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${gProfit >= 0 ? 'bg-emerald-500/30 text-emerald-200' : 'bg-red-500/30 text-red-200'}`}>
+                    {gProfit >= 0 ? '▲ Profitable' : '▼ At Loss'}
+                  </span>
+                </div>
+                <button onClick={() => setPage('reports')} className="flex items-center gap-1 text-[10px] font-bold text-white/70 hover:text-white transition-colors">
+                  {t('viewAll')}
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+
+              {/* Grand P&L strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 bg-amber-50/50">
+                {[
+                  { label: t('totalIncome'), val: fmt(gIncome), color: 'text-emerald-600' },
+                  { label: t('totalExpenses'), val: fmt(gExpense), color: 'text-red-500' },
+                  { label: t('netProfit'), val: (gProfit >= 0 ? '+' : '') + fmt(gProfit), color: gProfit >= 0 ? 'text-amber-600' : 'text-red-500' },
+                  { label: t('transactions'), val: `${mTxCount} entries`, color: 'text-blue-600' },
+                ].map((s) => (
+                  <div key={s.label} className="summary-card-animate flex flex-col items-center py-3 gap-0.5">
+                    <span className={`text-base font-black ${s.color}`}>{s.val}</span>
+                    <span className="text-[9px] text-gray-400 uppercase tracking-widest font-semibold">{s.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* POS Card vs Cash strip */}
+              <div className="bg-white border-b border-gray-100 px-5 py-2.5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[9px] font-bold text-blue-500">💳 Card: {fmt(gCardIncome)}</span>
+                    <span className="text-[9px] font-bold text-gray-500">💵 Cash: {fmt(gCashIncome)}</span>
+                  </div>
+                  <span className="text-[9px] text-gray-400">{t('income')}</span>
+                </div>
+                <div className="h-2 rounded-full overflow-hidden bg-gray-100 mb-2">
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${gIncome > 0 ? Math.round((gCardIncome / gIncome) * 100) : 0}%`, background: 'linear-gradient(90deg, #3b82f6, #60a5fa)' }} />
+                </div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[9px] font-bold text-blue-500">💳 Card: {fmt(gCardExpense)}</span>
+                    <span className="text-[9px] font-bold text-gray-500">💵 Cash: {fmt(gCashExpense)}</span>
+                  </div>
+                  <span className="text-[9px] text-gray-400">{t('expenses')}</span>
+                </div>
+                <div className="h-2 rounded-full overflow-hidden bg-gray-100">
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${gExpense > 0 ? Math.round((gCardExpense / gExpense) * 100) : 0}%`, background: 'linear-gradient(90deg, #3b82f6, #60a5fa)' }} />
+                </div>
+              </div>
+
+              {/* Income vs Expense ratio bar */}
+              <div className="bg-white border-b border-gray-100 px-5 py-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[9px] font-bold text-emerald-600">{t('income')} {incPct}%</span>
+                  <span className="text-[9px] font-bold text-red-500">{t('expenses')} {100 - incPct}%</span>
+                </div>
+                <div className="h-3 rounded-full overflow-hidden bg-red-200 flex">
+                  <div className="h-full rounded-l-full transition-all duration-700" style={{ width: `${incPct}%`, background: 'linear-gradient(90deg, #10b981, #34d399)' }} />
+                </div>
+              </div>
+
+              {/* Module breakdown */}
+              {hasData ? (
+                <div className="bg-white divide-y divide-gray-50">
+                  {modules.map((mod) => {
+                    const c = colorMap[mod.color];
+                    const net = mod.income - mod.expense;
+                    const barMax = Math.max(mod.income, mod.expense, 1);
+                    return (
+                      <div key={mod.label} className="px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className={`w-7 h-7 rounded-lg ${c.bg} flex items-center justify-center shrink-0`}>
+                            <svg className={`w-3.5 h-3.5 ${c.text}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">{mod.icon}</svg>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-xs font-bold ${c.text}`}>{mod.label}</span>
+                              <span className={`text-xs font-black ${net >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{net >= 0 ? '+' : ''}{fmt(net)}</span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <span className="text-[10px] text-emerald-500 font-semibold">+{fmt(mod.income)}</span>
+                              <span className="text-[10px] text-red-400 font-semibold">-{fmt(mod.expense)}</span>
+                              <span className="text-[10px] text-gray-400 ml-auto">{mod.count} {mod.unit}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Mini income/expense bars */}
+                        <div className="flex gap-1.5 ml-10">
+                          <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-gray-100">
+                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.round((mod.income / barMax) * 100)}%`, background: '#10b981' }} />
+                          </div>
+                          <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-gray-100">
+                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.round((mod.expense / barMax) * 100)}%`, background: '#ef4444' }} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Payroll row */}
+                  {hasService('team') && mActiveTeam.length > 0 && (
+                    <div className="px-5 py-3 hover:bg-gray-50/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center shrink-0">
+                          <svg className="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-rose-600">{t('cat_Payroll')}</span>
+                            <span className="text-xs font-black text-rose-600">{fmt(mPayroll)}</span>
+                          </div>
+                          <span className="text-[10px] text-gray-400">{mActiveTeam.length} {t('activeEmployees')} · monthly</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Advance due reminder */}
+                  {mAdvDue > 0 && (
+                    <div className="px-5 py-2.5 bg-orange-50/60 flex items-center gap-2">
+                      <span className="text-[10px]">⚠️</span>
+                      <span className="text-[10px] font-bold text-orange-600">Outstanding Advance Due: {fmt(mAdvDue)}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-white text-center py-10">
+                  <p className="text-sm text-gray-400 font-medium">No transactions this month yet</p>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="bg-gray-50 border-t border-gray-100 px-5 py-2.5 flex items-center justify-between">
+                <span className="text-[9px] text-gray-400">Generated: {new Date().toLocaleDateString()}</span>
+                <button onClick={() => setPage('reports')} className="text-[10px] font-bold hover:underline" style={{ color: '#936639' }}>
+                  Open Full Report →
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ── Transaction History Report ── */}
         {(() => {
           const allTxs = activeShop?.transactions || [];
@@ -1443,6 +1979,19 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
           // ── Summary totals ──
           const txIncome = allTxs.filter((t) => t.type === 'income').reduce((s, t) => s + (Number(t.amount) || 0), 0);
           const txExpense = allTxs.filter((t) => t.type === 'expense').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+          // Card income from transactions
+          const txCardIncomeOnly = allTxs.filter((t) => t.type === 'income' && t.paymentMethod === 'card').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+          // Card income from repairs (advance + payments + repairCost)
+          const repCardIncome = repairs.reduce((s, r) => {
+            let c = 0;
+            if (r.paymentMethod === 'card') c += (Number(r.advance) || 0);
+            (r.payments || []).forEach((p) => { if (p.paymentMethod === 'card') c += (Number(p.amount) || 0); });
+            if (r.paymentMethod === 'card' && ['ready', 'delivered', 'completed'].includes(r.status)) c += (Number(r.repairCost) || 0);
+            return s + c;
+          }, 0);
+          // Card income from advance payments received
+          const advCardIncome = advances.flatMap((a) => (a.payments || []).filter((p) => p.paymentMethod === 'card').map((p) => Number(p.amount) || 0)).reduce((s, v) => s + v, 0);
+          const txCardIncome = txCardIncomeOnly + repCardIncome + advCardIncome;
 
           const shBought = secondhand;
           const shSold = secondhand.filter((i) => i.status === 'sold');
@@ -1455,6 +2004,9 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
 
           const advGiven = advances.reduce((s, a) => s + (Number(a.advancePaid) || 0), 0);
           const advReceived = advances.flatMap((a) => (a.payments || []).map((p) => Number(p.amount) || 0)).reduce((s, v) => s + v, 0);
+
+          const totalIncomeAll = txIncome + repAdvInc + repFeeInc + advReceived;
+          const txCashIncome = totalIncomeAll - txCardIncome;
 
           const allMovements = skus.flatMap((sk) => (sk.movements || []).filter((m) => Number(m.price) > 0).map((m) => ({ ...m, skuName: sk.name, skuCode: sk.code })));
           const invIn = allMovements.filter((m) => m.type === 'in');
@@ -1478,6 +2030,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
               badge: tx.type === 'income' ? 'Entrata' : 'Uscita',
               badgeCls: tx.type === 'income' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600',
               dotCls: tx.type === 'income' ? 'bg-emerald-400' : 'bg-red-400',
+              paymentMethod: tx.paymentMethod || null,
               extra: tx.discountAmount > 0
                 ? `${tx.discountType === 'percent' ? `${tx.discountValue}% off` : 'Flat off'} — saved ${fmt(tx.discountAmount)}`
                 : null,
@@ -1488,7 +2041,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
           // Repair jobs — each repair becomes one or more entries (parts, advance, fee)
           repairs.forEach((r) => {
             const repDate = r.createdAt || '';
-            const statusMap = { ready: 'bg-emerald-100 text-emerald-700', delivered: 'bg-gray-100 text-gray-500', completed: 'bg-blue-100 text-blue-700', parts_ordered: 'bg-sky-100 text-sky-700', in_progress: 'bg-amber-100 text-amber-700', pending: 'bg-orange-100 text-orange-700', cancelled: 'bg-red-100 text-red-600' };
+            const statusMap = { ready: 'bg-emerald-100 text-emerald-700', delivered: 'bg-emerald-100 text-emerald-700', completed: 'bg-blue-100 text-blue-700', parts_ordered: 'bg-sky-100 text-sky-700', in_progress: 'bg-amber-100 text-amber-700', pending: 'bg-orange-100 text-orange-700', cancelled: 'bg-red-100 text-red-600' };
             const statusLabel = { parts_ordered: 'Parti Ordinate', in_progress: 'In Corso', ready: 'Pronto', delivered: 'Consegnato', pending: 'In Attesa', completed: 'Completato' }[r.status] || (r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : '');
             const statusCls = statusMap[r.status] || 'bg-gray-100 text-gray-500';
             const device = [r.device, r.issue].filter(Boolean).join(' · ');
@@ -1520,6 +2073,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                 badge: t('badge_repairAdvance'),
                 badgeCls: 'bg-amber-100 text-amber-700',
                 dotCls: 'bg-amber-400',
+                paymentMethod: r.paymentMethod || null,
                 extra: null,
               });
             }
@@ -1535,6 +2089,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                 badge: t('badge_repairFee'),
                 badgeCls: 'bg-blue-100 text-blue-700',
                 dotCls: 'bg-blue-400',
+                paymentMethod: r.paymentMethod || null,
                 extra: statusLabel ? `Stato: ${statusLabel}` : null,
                 extraCls: statusCls,
               });
@@ -1572,6 +2127,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                 badge: t('badge_advanceGiven'),
                 badgeCls: 'bg-purple-100 text-purple-700',
                 dotCls: 'bg-purple-400',
+                paymentMethod: a.paymentMethod || null,
                 extra: `Totale: ${fmt(a.totalAmount || 0)} · ${pct.toFixed(0)}% ricevuto`,
                 pct,
               });
@@ -1588,6 +2144,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                 badge: t('badge_advanceReceived'),
                 badgeCls: 'bg-teal-100 text-teal-700',
                 dotCls: 'bg-teal-400',
+                paymentMethod: p.paymentMethod || null,
                 extra: null,
               });
             });
@@ -1659,22 +2216,22 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
 
               {/* ── Header ── */}
               <div className="rounded-2xl overflow-hidden shadow-lg border border-gray-200">
-                <div className="flex items-center justify-between px-5 py-3.5" style={{ background: 'linear-gradient(135deg, #6b3a1f 0%, #936639 100%)' }}>
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
-                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-3.5" style={{ background: 'linear-gradient(135deg, #6b3a1f 0%, #936639 100%)' }}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                      <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
                     </div>
                     <div>
-                      <h2 className="text-xs font-extrabold text-white uppercase tracking-wider">{t('transactionHistory')}</h2>
-                      <p className="text-[10px] text-white/45 leading-tight">Unified timeline — all modules</p>
+                      <h2 className="text-[10px] sm:text-xs font-extrabold text-white uppercase tracking-wider">{t('transactionHistory')}</h2>
+                      <p className="text-[9px] sm:text-[10px] text-white/45 leading-tight hidden sm:block">Unified timeline — all modules</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
                     {['all', 'income', 'expense'].map((f) => (
                       <button
                         key={f}
                         onClick={() => setFilter(f)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize transition-all ${filter === f
+                        className={`px-2 sm:px-2.5 py-1 rounded-lg text-[9px] sm:text-[10px] font-bold capitalize transition-all ${filter === f
                           ? f === 'income' ? 'bg-emerald-500/40 text-emerald-200' : f === 'expense' ? 'bg-red-500/40 text-red-200' : 'bg-white/20 text-white'
                           : 'text-white/50 hover:bg-white/10 hover:text-white'}`}
                       >
@@ -1693,9 +2250,9 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
 
                 {/* Running totals strip */}
                 {filtered.length > 0 && (
-                  <div className="flex items-center justify-between px-5 py-2.5 bg-gray-50 border-b border-gray-100">
-                    <span className="text-[10px] font-semibold text-gray-400">{filtered.length} {t('entries')}</span>
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 bg-gray-50 border-b border-gray-100">
+                    <span className="text-[9px] sm:text-[10px] font-semibold text-gray-400">{filtered.length} {t('entries')}</span>
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                       <span className="text-xs font-black text-emerald-600">+{fmt(totalIncome)}</span>
                       <span className="text-[10px] text-gray-300">·</span>
                       <span className="text-xs font-black text-red-500">-{fmt(totalExpense)}</span>
@@ -1703,6 +2260,25 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                       <span className={`text-xs font-black ${totalIncome - totalExpense >= 0 ? 'text-amber-600' : 'text-red-500'}`}>
                         {t('net')} {totalIncome - totalExpense >= 0 ? '+' : ''}{fmt(totalIncome - totalExpense)}
                       </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cash vs Card breakdown */}
+                {(txCardIncome > 0 || txCashIncome > 0) && (
+                  <div className="flex items-center gap-3 px-5 py-2 bg-white border-b border-gray-100">
+                    <div className="flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <span className="text-[10px] font-bold text-emerald-700">{t('cash')}: {fmt(txCashIncome)}</span>
+                    </div>
+                    <span className="text-[10px] text-gray-300">·</span>
+                    <div className="flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                      <span className="text-[10px] font-bold text-blue-700">{t('cardPOS')}: {fmt(txCardIncome)}</span>
                     </div>
                   </div>
                 )}
@@ -1734,6 +2310,16 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-xs font-bold text-gray-800 leading-tight">{e.label}</p>
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${e.badgeCls}`}>{e.badge}</span>
+                            {e.paymentMethod && (
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5 ${e.paymentMethod === 'card' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-50 text-emerald-600'}`}>
+                                {e.paymentMethod === 'card' ? (
+                                  <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                                ) : (
+                                  <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                )}
+                                {e.paymentMethod === 'card' ? t('cardPOS') : t('cash')}
+                              </span>
+                            )}
                           </div>
                           {e.sub1 && <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{e.sub1}</p>}
                           {e.sub2 && <p className="text-[10px] text-gray-300 mt-0.5 leading-snug">{e.sub2}</p>}
@@ -1791,66 +2377,257 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
       {/* Add Transaction Modal */}
       {addTxOpen && <AddTransactionModal onClose={() => setAddTxOpen(false)} />}
 
-      {/* Income / Expense Detail Modal */}
+      {/* POS Payment Detail Popup */}
+      {posPopupOpen && (() => {
+        const txs = activeShop?.transactions || [];
+        const repairs = activeShop?.repairs || [];
+        const advances = activeShop?.advances || [];
+
+        const cardEntries = [];
+        const cashEntries = [];
+
+        txs.filter(t => t.type === 'income').forEach(t => {
+          const entry = { description: t.description || '—', amount: Number(t.amount) || 0, date: t.date || '', category: t.category || 'Transaction' };
+          if (t.paymentMethod === 'card') cardEntries.push(entry); else cashEntries.push(entry);
+        });
+        repairs.forEach(r => {
+          if (Number(r.advance) > 0) {
+            const entry = { description: `${r.customerName} — ${r.device} (Advance)`, amount: Number(r.advance), date: r.createdAt?.slice(0,10) || '', category: 'Repair' };
+            if (r.paymentMethod === 'card') cardEntries.push(entry); else cashEntries.push(entry);
+          }
+          (r.payments || []).forEach(p => {
+            const entry = { description: `${r.customerName} — Payment`, amount: Number(p.amount) || 0, date: p.date || '', category: 'Repair' };
+            if (p.paymentMethod === 'card') cardEntries.push(entry); else cashEntries.push(entry);
+          });
+          if (Number(r.repairCost) > 0 && ['ready','delivered','completed'].includes(r.status)) {
+            const entry = { description: `${r.customerName} — ${r.device} (Fee)`, amount: Number(r.repairCost), date: r.createdAt?.slice(0,10) || '', category: 'Repair' };
+            if (r.paymentMethod === 'card') cardEntries.push(entry); else cashEntries.push(entry);
+          }
+        });
+        advances.forEach(a => {
+          if (Number(a.advancePaid) > 0) {
+            const entry = { description: `${a.customerName} — Advance`, amount: Number(a.advancePaid), date: a.date?.slice(0,10) || '', category: 'Advance' };
+            if (a.paymentMethod === 'card') cardEntries.push(entry); else cashEntries.push(entry);
+          }
+          (a.payments || []).forEach(p => {
+            const entry = { description: `${a.customerName} — Payment`, amount: Number(p.amount) || 0, date: p.date || '', category: 'Advance' };
+            if (p.paymentMethod === 'card') cardEntries.push(entry); else cashEntries.push(entry);
+          });
+        });
+
+        const totalCard = cardEntries.reduce((s, e) => s + e.amount, 0);
+        const totalCash = cashEntries.reduce((s, e) => s + e.amount, 0);
+        const totalAll = totalCard + totalCash;
+        const cardPct = totalAll > 0 ? Math.round((totalCard / totalAll) * 100) : 0;
+
+        return (
+          <div className="fixed inset-0 z-9999 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setPosPopupOpen(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="px-5 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">
+                    <svg className="w-4.5 h-4.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-white">{t('posPayments')}</h2>
+                    <p className="text-[10px] text-white/60">{t('cashVsCard')}</p>
+                  </div>
+                </div>
+                <button onClick={() => setPosPopupOpen(false)} className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition-colors">
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              {/* Summary strip */}
+              <div className="grid grid-cols-3 divide-x divide-gray-100 bg-gray-50 border-b border-gray-100">
+                <div className="px-4 py-3 text-center">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase">{t('cardPOS')}</p>
+                  <p className="text-lg font-black text-blue-600">{fmt(totalCard)}</p>
+                  <p className="text-[9px] text-blue-400">{cardEntries.length} txn · {cardPct}%</p>
+                </div>
+                <div className="px-4 py-3 text-center">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase">{t('cash')}</p>
+                  <p className="text-lg font-black text-emerald-600">{fmt(totalCash)}</p>
+                  <p className="text-[9px] text-emerald-400">{cashEntries.length} txn · {totalAll > 0 ? 100 - cardPct : 0}%</p>
+                </div>
+                <div className="px-4 py-3 text-center">
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase">{t('total')}</p>
+                  <p className="text-lg font-black text-gray-800">{fmt(totalAll)}</p>
+                  <p className="text-[9px] text-gray-400">{cardEntries.length + cashEntries.length} txn</p>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              {totalAll > 0 && (
+                <div className="px-5 py-3 bg-white border-b border-gray-100">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                      <span className="text-[10px] font-bold text-blue-600">{t('cardPOS')} {cardPct}%</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] font-bold text-emerald-600">{t('cash')} {totalAll > 0 ? 100 - cardPct : 0}%</span>
+                    </div>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden flex">
+                    <div className="h-full bg-blue-500 transition-all" style={{ width: `${cardPct}%` }} />
+                    <div className="h-full bg-emerald-500 transition-all" style={{ width: `${totalAll > 0 ? 100 - cardPct : 0}%` }} />
+                  </div>
+                </div>
+              )}
+
+              {/* Card transactions list */}
+              <div className="flex-1 overflow-y-auto">
+                {cardEntries.length > 0 && (
+                  <div className="px-5 pt-3 pb-1">
+                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                      Card Payments ({cardEntries.length})
+                    </p>
+                    {[...cardEntries].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((e, i) => (
+                      <div key={i} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                        <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                          <svg className="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-800 truncate">{e.description}</p>
+                          <p className="text-[9px] text-gray-400">{e.date ? fmtDate(e.date) : '—'} · {e.category}</p>
+                        </div>
+                        <span className="text-xs font-black text-blue-600">+{fmt(e.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {cashEntries.length > 0 && (
+                  <div className="px-5 pt-3 pb-1">
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                      Cash Payments ({cashEntries.length})
+                    </p>
+                    {[...cashEntries].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((e, i) => (
+                      <div key={i} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+                          <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-800 truncate">{e.description}</p>
+                          <p className="text-[9px] text-gray-400">{e.date ? fmtDate(e.date) : '—'} · {e.category}</p>
+                        </div>
+                        <span className="text-xs font-black text-emerald-600">+{fmt(e.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {cardEntries.length === 0 && cashEntries.length === 0 && (
+                  <div className="px-5 py-10 text-center">
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-500">{t('noPosPayments')}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{t('noPosPaymentsSub')}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Income / Expense / Profit Detail Modal */}
       {txDetailModal && (() => {
         const isIncome = txDetailModal === 'income';
+        const isExpense = txDetailModal === 'expense';
+        const isProfit = txDetailModal === 'profit';
         const allTxs = activeShop?.transactions || [];
         const secondhand = activeShop?.secondhand || [];
         const repairs = activeShop?.repairs || [];
         const advances = activeShop?.advances || [];
         const skus = activeShop?.skus || [];
 
-        const rows = [];
+        const incomeRows = [];
+        const expenseRows = [];
 
         // Direct transactions
-        allTxs.filter(t => t.type === txDetailModal).forEach(t => rows.push({
+        allTxs.filter(t => t.type === 'income').forEach(t => incomeRows.push({
           id: t.id, date: t.date, description: t.description || t.clientName || '—',
-          amount: Number(t.amount) || 0, category: t.category || '—', source: 'Transaction',
+          amount: Number(t.amount) || 0, category: t.category || '—', source: 'Transaction', paymentMethod: t.paymentMethod || null, flow: 'income',
+        }));
+        allTxs.filter(t => t.type === 'expense').forEach(t => expenseRows.push({
+          id: t.id, date: t.date, description: t.description || t.clientName || '—',
+          amount: Number(t.amount) || 0, category: t.category || '—', source: 'Transaction', paymentMethod: t.paymentMethod || null, flow: 'expense',
         }));
 
-        if (isIncome) {
-          // Secondhand sold
-          secondhand.filter(i => i.status === 'sold').forEach(i => rows.push({
-            id: `sh-${i.id}`, date: i.sellDate || '', description: `SH Sold: ${i.itemName}${i.brand ? ` (${i.brand})` : ''}`,
-            amount: Number(i.sellPrice) || 0, category: 'Secondhand Sold', source: 'Secondhand',
-          }));
-          // Repairs income
-          repairs.forEach(r => {
-            if (Number(r.advance) > 0)
-              rows.push({ id: `rep-adv-${r.id}`, date: (r.advanceReceivedAt || r.createdAt || '').slice(0, 10), description: `Repair Advance: ${r.customerName} — ${r.device}`, amount: Number(r.advance), category: 'Repair Advance', source: 'Repair' });
-            if (Number(r.repairCost) > 0 && ['ready', 'delivered', 'completed'].includes(r.status))
-              rows.push({ id: `rep-fee-${r.id}`, date: (r.feeReceivedAt || r.updatedAt || r.createdAt || '').slice(0, 10), description: `Repair Fee: ${r.customerName} — ${r.device}`, amount: Number(r.repairCost), category: 'Repair Fee', source: 'Repair' });
-          });
-          // Advances income
-          advances.forEach(a => {
-            if (Number(a.advancePaid) > 0)
-              rows.push({ id: `adv-${a.id}`, date: (a.date || '').slice(0, 10), description: `Advance Received: ${a.customerName}${a.description ? ` — ${a.description}` : ''}`, amount: Number(a.advancePaid), category: 'Advance', source: 'Advance' });
-            (a.payments || []).forEach(p => rows.push({ id: `adv-pay-${p.id}`, date: (p.date || '').slice(0, 10), description: `Payment from ${a.customerName}`, amount: Number(p.amount) || 0, category: 'Advance Payment', source: 'Advance' }));
-          });
-          // Inventory out (sales)
-          skus.forEach(sk => (sk.movements || []).filter(m => m.type === 'out').forEach(m => {
-            const amt = (Number(m.price) || Number(sk.sellPrice) || 0) * (Number(m.qty) || 1);
-            if (amt > 0) rows.push({ id: `inv-${m.id}`, date: (m.date || '').slice(0, 10), description: `Stock Sold: ${sk.name} ×${m.qty}`, amount: amt, category: 'Stock Sale', source: 'Inventory' });
-          }));
-        } else {
-          // Secondhand buy
-          secondhand.forEach(i => rows.push({ id: `sh-buy-${i.id}`, date: i.buyDate || '', description: `SH Buy: ${i.itemName}${i.brand ? ` (${i.brand})` : ''}`, amount: Number(i.buyPrice) || 0, category: 'Secondhand Buy', source: 'Secondhand' }));
-          // Repairs expense
-          repairs.filter(r => Number(r.partsCost) > 0).forEach(r => rows.push({ id: `rep-parts-${r.id}`, date: (r.partsRecordedAt || r.createdAt || '').slice(0, 10), description: `Parts: ${r.device}${r.partsOrdered ? ` — ${r.partsOrdered}` : ''}`, amount: Number(r.partsCost), category: 'Repair Parts', source: 'Repair' }));
-          // Advances expense
-          advances.filter(a => Number(a.productCost) > 0).forEach(a => rows.push({ id: `adv-cost-${a.id}`, date: (a.date || '').slice(0, 10), description: `Product Cost: ${a.customerName}`, amount: Number(a.productCost), category: 'Advance Cost', source: 'Advance' }));
-          // Inventory in (purchases)
-          skus.forEach(sk => (sk.movements || []).filter(m => m.type === 'in').forEach(m => {
-            const amt = (Number(m.price) || Number(sk.buyPrice) || 0) * (Number(m.qty) || 1);
-            if (amt > 0) rows.push({ id: `inv-${m.id}`, date: (m.date || '').slice(0, 10), description: `Stock In: ${sk.name} ×${m.qty}`, amount: amt, category: 'Stock Purchase', source: 'Inventory' });
-          }));
-        }
+        // Secondhand
+        secondhand.filter(i => i.status === 'sold').forEach(i => incomeRows.push({
+          id: `sh-${i.id}`, date: i.sellDate || '', description: `SH Sold: ${i.itemName}${i.brand ? ` (${i.brand})` : ''}`,
+          amount: Number(i.sellPrice) || 0, category: 'Secondhand Sold', source: 'Secondhand', flow: 'income',
+        }));
+        secondhand.forEach(i => expenseRows.push({
+          id: `sh-buy-${i.id}`, date: i.buyDate || '', description: `SH Buy: ${i.itemName}${i.brand ? ` (${i.brand})` : ''}`,
+          amount: Number(i.buyPrice) || 0, category: 'Secondhand Buy', source: 'Secondhand', flow: 'expense',
+        }));
 
+        // Repairs
+        repairs.forEach(r => {
+          if (Number(r.advance) > 0)
+            incomeRows.push({ id: `rep-adv-${r.id}`, date: (r.advanceReceivedAt || r.createdAt || '').slice(0, 10), description: `Repair Advance: ${r.customerName} — ${r.device}`, amount: Number(r.advance), category: 'Repair Advance', source: 'Repair', paymentMethod: r.paymentMethod || null, flow: 'income' });
+          if (Number(r.repairCost) > 0 && ['ready', 'delivered', 'completed'].includes(r.status))
+            incomeRows.push({ id: `rep-fee-${r.id}`, date: (r.feeReceivedAt || r.updatedAt || r.createdAt || '').slice(0, 10), description: `Repair Fee: ${r.customerName} — ${r.device}`, amount: Number(r.repairCost), category: 'Repair Fee', source: 'Repair', paymentMethod: r.paymentMethod || null, flow: 'income' });
+          if (Number(r.partsCost) > 0)
+            expenseRows.push({ id: `rep-parts-${r.id}`, date: (r.partsRecordedAt || r.createdAt || '').slice(0, 10), description: `Parts: ${r.device}${r.partsOrdered ? ` — ${r.partsOrdered}` : ''}`, amount: Number(r.partsCost), category: 'Repair Parts', source: 'Repair', flow: 'expense' });
+        });
+
+        // Advances
+        advances.forEach(a => {
+          if (Number(a.advancePaid) > 0)
+            incomeRows.push({ id: `adv-${a.id}`, date: (a.date || '').slice(0, 10), description: `Advance Received: ${a.customerName}${a.description ? ` — ${a.description}` : ''}`, amount: Number(a.advancePaid), category: 'Advance', source: 'Advance', paymentMethod: a.paymentMethod || null, flow: 'income' });
+          (a.payments || []).forEach(p => incomeRows.push({ id: `adv-pay-${p.id}`, date: (p.date || '').slice(0, 10), description: `Payment from ${a.customerName}`, amount: Number(p.amount) || 0, category: 'Advance Payment', source: 'Advance', paymentMethod: p.paymentMethod || null, flow: 'income' }));
+          if (Number(a.productCost) > 0)
+            expenseRows.push({ id: `adv-cost-${a.id}`, date: (a.date || '').slice(0, 10), description: `Product Cost: ${a.customerName}`, amount: Number(a.productCost), category: 'Advance Cost', source: 'Advance', flow: 'expense' });
+        });
+
+        // Inventory
+        skus.forEach(sk => (sk.movements || []).forEach(m => {
+          const isIn = m.type === 'in';
+          const price = Number(m.price) || (isIn ? Number(sk.buyPrice) : Number(sk.sellPrice)) || 0;
+          const amt = price * (Number(m.qty) || 1);
+          if (amt > 0) {
+            const entry = { id: `inv-${m.id}`, date: (m.date || '').slice(0, 10), description: `${isIn ? 'Stock In' : 'Stock Sold'}: ${sk.name} ×${m.qty}`, amount: amt, category: isIn ? 'Stock Purchase' : 'Stock Sale', source: 'Inventory', flow: isIn ? 'expense' : 'income' };
+            if (isIn) expenseRows.push(entry); else incomeRows.push(entry);
+          }
+        }));
+
+        const rows = isIncome ? incomeRows : isExpense ? expenseRows : [...incomeRows.map(r => ({ ...r })), ...expenseRows.map(r => ({ ...r }))];
         rows.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-        const total = rows.reduce((s, r) => s + r.amount, 0);
+
+        const totalInc = incomeRows.reduce((s, r) => s + r.amount, 0);
+        const totalExp = expenseRows.reduce((s, r) => s + r.amount, 0);
+        const total = isIncome ? totalInc : isExpense ? totalExp : totalInc - totalExp;
+
+        const relevantRows = isProfit ? rows : rows;
+        const cardTotal = relevantRows.filter(r => r.paymentMethod === 'card').reduce((s, r) => s + r.amount, 0);
+        const cashTotal = relevantRows.filter(r => r.paymentMethod !== 'card').reduce((s, r) => s + r.amount, 0);
+        const cardCount = relevantRows.filter(r => r.paymentMethod === 'card').length;
+        const cashCount = relevantRows.length - cardCount;
+        const sumForPct = cardTotal + cashTotal;
+        const cardPctDetail = sumForPct > 0 ? Math.round((cardTotal / sumForPct) * 100) : 0;
+
         const grad = isIncome
           ? 'linear-gradient(135deg, #34d399 0%, #10b981 60%, #059669 100%)'
-          : 'linear-gradient(135deg, #f87171 0%, #ef4444 60%, #dc2626 100%)';
+          : isExpense
+            ? 'linear-gradient(135deg, #f87171 0%, #ef4444 60%, #dc2626 100%)'
+            : total >= 0
+              ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 60%, #d97706 100%)'
+              : 'linear-gradient(135deg, #f87171 0%, #ef4444 60%, #dc2626 100%)';
+        const modalTitle = isIncome ? 'Income — Full Detail' : isExpense ? 'Expenses — Full Detail' : 'Net Profit — Full Detail';
 
         return (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
@@ -1859,45 +2636,119 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
               {/* Header */}
               <div className="px-5 py-4 flex items-center justify-between shrink-0" style={{ background: grad }}>
                 <div>
-                  <h2 className="text-lg font-black text-white">{isIncome ? 'Income' : 'Expenses'} — Full Detail</h2>
-                  <p className="text-white/70 text-xs mt-0.5">{rows.length} records · Total: {fmt(total)}</p>
+                  <h2 className="text-lg font-black text-white">{modalTitle}</h2>
+                  <p className="text-white/70 text-xs mt-0.5">{rows.length} records · {isProfit ? `Income: ${fmt(totalInc)} · Expenses: ${fmt(totalExp)} · Net: ${fmt(total)}` : `Total: ${fmt(total)}`}</p>
                 </div>
                 <button onClick={() => setTxDetailModal(null)} className="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
                   <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
 
+              {/* Profit Summary Strip */}
+              {isProfit && (
+                <div className="shrink-0 border-b border-gray-100">
+                  <div className="grid grid-cols-3 divide-x divide-gray-100 bg-gray-50">
+                    <div className="px-4 py-2.5 text-center">
+                      <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('income')}</p>
+                      <p className="text-sm font-black text-emerald-600">{fmt(totalInc)}</p>
+                      <p className="text-[8px] text-emerald-400">{incomeRows.length} txn</p>
+                    </div>
+                    <div className="px-4 py-2.5 text-center">
+                      <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('expenses')}</p>
+                      <p className="text-sm font-black text-red-500">{fmt(totalExp)}</p>
+                      <p className="text-[8px] text-red-400">{expenseRows.length} txn</p>
+                    </div>
+                    <div className="px-4 py-2.5 text-center">
+                      <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('netProfit')}</p>
+                      <p className={`text-sm font-black ${total >= 0 ? 'text-amber-500' : 'text-red-500'}`}>{fmt(total)}</p>
+                      <p className="text-[8px] text-gray-400">{rows.length} txn</p>
+                    </div>
+                  </div>
+                  <div className="px-5 py-2 flex items-center gap-3">
+                    <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /><span className="text-[9px] font-bold text-emerald-600">{t('income')} {totalInc + totalExp > 0 ? Math.round((totalInc / (totalInc + totalExp)) * 100) : 0}%</span></div>
+                    <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /><span className="text-[9px] font-bold text-red-500">{t('expenses')} {totalInc + totalExp > 0 ? Math.round((totalExp / (totalInc + totalExp)) * 100) : 0}%</span></div>
+                  </div>
+                  <div className="px-5 pb-2.5">
+                    <div className="h-2 rounded-full bg-gray-100 overflow-hidden flex">
+                      <div className="h-full bg-emerald-500 transition-all" style={{ width: `${totalInc + totalExp > 0 ? Math.round((totalInc / (totalInc + totalExp)) * 100) : 0}%` }} />
+                      <div className="h-full bg-red-400 transition-all" style={{ width: `${totalInc + totalExp > 0 ? Math.round((totalExp / (totalInc + totalExp)) * 100) : 0}%` }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Card vs Cash Breakdown */}
+              {!isProfit && total > 0 && (
+                <div className="shrink-0 border-b border-gray-100">
+                  <div className="grid grid-cols-3 divide-x divide-gray-100 bg-gray-50">
+                    <div className="px-4 py-2.5 text-center">
+                      <p className="text-[9px] text-gray-400 font-semibold uppercase">CARD / POS</p>
+                      <p className="text-sm font-black text-blue-600">{fmt(cardTotal)}</p>
+                      <p className="text-[8px] text-blue-400">{cardCount} txn · {cardPctDetail}%</p>
+                    </div>
+                    <div className="px-4 py-2.5 text-center">
+                      <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('cash')}</p>
+                      <p className="text-sm font-black text-emerald-600">{fmt(cashTotal)}</p>
+                      <p className="text-[8px] text-emerald-400">{cashCount} txn · {total > 0 ? 100 - cardPctDetail : 0}%</p>
+                    </div>
+                    <div className="px-4 py-2.5 text-center">
+                      <p className="text-[9px] text-gray-400 font-semibold uppercase">{t('total')}</p>
+                      <p className="text-sm font-black text-gray-800">{fmt(total)}</p>
+                      <p className="text-[8px] text-gray-400">{rows.length} txn</p>
+                    </div>
+                  </div>
+                  <div className="px-5 py-2 flex items-center gap-3">
+                    <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /><span className="text-[9px] font-bold text-blue-600">{t('cardPOS')} {cardPctDetail}%</span></div>
+                    <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /><span className="text-[9px] font-bold text-emerald-600">{t('cash')} {total > 0 ? 100 - cardPctDetail : 0}%</span></div>
+                  </div>
+                  <div className="px-5 pb-2.5">
+                    <div className="h-2 rounded-full bg-gray-100 overflow-hidden flex">
+                      <div className="h-full bg-blue-500 transition-all" style={{ width: `${cardPctDetail}%` }} />
+                      <div className="h-full bg-emerald-500 transition-all" style={{ width: `${total > 0 ? 100 - cardPctDetail : 0}%` }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Source filter badges */}
               {/* List */}
               <div className="overflow-y-auto flex-1 px-4 py-3 space-y-2">
                 {rows.length === 0 ? (
                   <div className="text-center py-16 text-gray-400 text-sm">No {txDetailModal} records yet.</div>
-                ) : rows.map(row => (
+                ) : rows.map(row => {
+                  const rowIsIncome = isProfit ? row.flow === 'income' : isIncome;
+                  return (
                   <div key={row.id} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 hover:bg-gray-100 transition-colors">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isIncome ? 'bg-emerald-100' : 'bg-red-100'}`}>
-                      <svg className={`w-4 h-4 ${isIncome ? 'text-emerald-600' : 'text-red-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        {isIncome
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${rowIsIncome ? 'bg-emerald-100' : 'bg-red-100'}`}>
+                      <svg className={`w-4 h-4 ${rowIsIncome ? 'text-emerald-600' : 'text-red-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        {rowIsIncome
                           ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
                           : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" />}
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-800 truncate">{row.description}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className="text-[10px] text-gray-400">{row.date ? fmtDate(row.date) : '—'}</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white border border-gray-200 text-gray-500 font-medium">{row.source}</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white border border-gray-200 text-gray-500">{row.category}</span>
+                        {row.paymentMethod && (
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${row.paymentMethod === 'card' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-50 text-emerald-600'}`}>
+                            {row.paymentMethod === 'card' ? '💳 Card' : '💵 Cash'}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <p className={`text-sm font-black shrink-0 ${isIncome ? 'text-emerald-600' : 'text-red-500'}`}>{fmt(row.amount)}</p>
+                    <p className={`text-sm font-black shrink-0 ${rowIsIncome ? 'text-emerald-600' : 'text-red-500'}`}>{rowIsIncome ? '+' : '-'}{fmt(row.amount)}</p>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Footer total */}
               <div className="px-5 py-3.5 border-t border-gray-100 flex items-center justify-between shrink-0 bg-gray-50">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Total {isIncome ? 'Income' : 'Expenses'}</span>
-                <span className={`text-lg font-black ${isIncome ? 'text-emerald-600' : 'text-red-500'}`}>{fmt(total)}</span>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{isProfit ? `Net Profit` : `Total ${isIncome ? 'Income' : 'Expenses'}`}</span>
+                <span className={`text-lg font-black ${isProfit ? (total >= 0 ? 'text-amber-500' : 'text-red-500') : isIncome ? 'text-emerald-600' : 'text-red-500'}`}>{fmt(total)}</span>
               </div>
             </div>
           </div>
@@ -2227,6 +3078,19 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                       {repairPayOpenId === r.id && (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 space-y-2">
                           <p className="text-xs font-bold text-emerald-700">Add Payment</p>
+                          <div className="flex gap-1 p-0.5 bg-emerald-100 rounded-lg mb-1">
+                            {['cash', 'card'].map((m) => (
+                              <button key={m} type="button" onClick={() => setRepairPayMethod(m)}
+                                className={`flex-1 py-1.5 text-[10px] font-bold rounded-md flex items-center justify-center gap-1 transition-all ${repairPayMethod === m ? (m === 'cash' ? 'bg-white text-emerald-700 shadow-sm' : 'bg-white text-blue-700 shadow-sm') : 'text-gray-500'}`}>
+                                {m === 'cash' ? (
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                ) : (
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                                )}
+                                {m === 'cash' ? t('cash') : t('cardPOS')}
+                              </button>
+                            ))}
+                          </div>
                           <div className="flex gap-2">
                             <input
                               type="number" min="0"
@@ -2251,7 +3115,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                                 const existing = r.payments || [];
                                 const initialAdv = r.initialAdvance ?? (r.advance || 0);
                                 // first time: save the original advance as initialAdvance
-                                const newPayment = { id: Date.now().toString(), amount: amt, note: repairPayNote.trim(), date: new Date().toISOString().split('T')[0] };
+                                const newPayment = { id: Date.now().toString(), amount: amt, note: repairPayNote.trim(), date: new Date().toISOString().split('T')[0], paymentMethod: repairPayMethod };
                                 const payments = [...existing, newPayment];
                                 const newAdv = Number(initialAdv) + payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
                                 updateRepair(activeShop.id, r.id, {
@@ -2259,12 +3123,12 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                                   advance: newAdv,
                                   ...(r.initialAdvance === undefined ? { initialAdvance: r.advance || 0 } : {})
                                 });
-                                setRepairPayAmt(''); setRepairPayNote(''); setRepairPayOpenId(null);
+                                setRepairPayAmt(''); setRepairPayNote(''); setRepairPayMethod('cash'); setRepairPayOpenId(null);
                               }}
                               className="flex-1 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg transition-colors">
                               Save Payment
                             </button>
-                            <button onClick={() => { setRepairPayOpenId(null); setRepairPayAmt(''); setRepairPayNote(''); setRepairPayError(''); }}
+                            <button onClick={() => { setRepairPayOpenId(null); setRepairPayAmt(''); setRepairPayNote(''); setRepairPayMethod('cash'); setRepairPayError(''); }}
                               className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-lg transition-colors">
                               Cancel
                             </button>
@@ -2393,6 +3257,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                                 subject: next === 'ready' ? `Your Repair is Ready! – ${activeShop.name}` : `Repair Delivered – ${activeShop.name}`,
                                 message: msgs[next],
                                 shopName: activeShop.name,
+                                emailCfg: emailSettings,
                               });
                             }
                           }}
@@ -2405,7 +3270,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                         {/* Add Payment Button */}
                         {!fullyPaid && (
                           <button
-                            onClick={() => { setRepairPayOpenId(repairPayOpenId === r.id ? null : r.id); setRepairPayAmt(''); setRepairPayNote(''); setRepairPayError(''); }}
+                            onClick={() => { setRepairPayOpenId(repairPayOpenId === r.id ? null : r.id); setRepairPayAmt(''); setRepairPayNote(''); setRepairPayMethod('cash'); setRepairPayError(''); }}
                             className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 text-xs font-bold border border-emerald-500/30 rounded-xl transition-colors">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                             Pay
@@ -2477,13 +3342,30 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                     </div>
                   ))}
                 </div>
+                {/* Payment Method */}
+                <div className="mb-3">
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('paymentMethod')}</label>
+                  <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg w-full sm:w-64">
+                    {['cash', 'card'].map((m) => (
+                      <button key={m} type="button" onClick={() => setRepairForm((f) => ({ ...f, paymentMethod: m }))}
+                        className={`flex-1 py-2 text-xs font-bold rounded-md flex items-center justify-center gap-1.5 transition-all ${repairForm.paymentMethod === m ? (m === 'cash' ? 'bg-white text-emerald-700 shadow-sm' : 'bg-white text-blue-700 shadow-sm') : 'text-gray-500'}`}>
+                        {m === 'cash' ? (
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                        )}
+                        {m === 'cash' ? t('cash') : t('cardPOS')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="mb-3">
                   <label className="block text-xs font-semibold text-gray-600 mb-1">{t('notes')}</label>
                   <textarea className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder-gray-400 resize-none" rows={2} value={repairForm.notes} onChange={(e) => setRepairForm((f) => ({ ...f, notes: e.target.value }))} placeholder={t('additionalNotes')} />
                 </div>
                 {repairFormError && <p className="text-xs text-red-500 mb-3">{repairFormError}</p>}
                 <div className="flex gap-3">
-                  <button onClick={() => { setAddRepairOpen(false); setRepairFormError(''); setRepairForm({ customerName: '', phone: '', device: '', issue: '', partsOrdered: '', partsCost: '', repairCost: '', advance: '', notes: '', email: '' }); }}
+                  <button onClick={() => { setAddRepairOpen(false); setRepairFormError(''); setRepairForm({ customerName: '', phone: '', device: '', issue: '', partsOrdered: '', partsCost: '', repairCost: '', advance: '', notes: '', email: '', paymentMethod: 'cash' }); }}
                     className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors text-sm">{t('cancel')}</button>
                   <button onClick={handleAddRepair}
                     className="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors text-sm shadow-sm">{t('saveRepair')}</button>
@@ -2645,24 +3527,39 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
 
                       {/* Inline add payment input */}
                       {isPayOpen && (
-                        <div className="pt-1 border-t border-gray-100 flex items-center gap-2">
-                          <input
-                            className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder-gray-400"
-                            type="number" min="1" placeholder={`Amount (${currencyObj.symbol})`}
-                            value={advancePayAmt} onChange={(e) => setAdvancePayAmt(e.target.value)}
-                            autoFocus
-                          />
-                          <button onClick={() => handleAdvancePay(adv)}
-                            className="px-3 py-2 text-white text-xs font-semibold rounded-xl transition-colors" style={{ backgroundColor: '#a68a64' }}>{t('add')}</button>
-                          <button onClick={() => setAdvancePayOpen(null)}
-                            className="px-3 py-2 border border-gray-200 text-gray-500 text-xs font-medium rounded-xl hover:bg-gray-50 transition-colors">{t('cancel')}</button>
+                        <div className="pt-2 border-t border-gray-100 space-y-2">
+                          <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
+                            {['cash', 'card'].map((m) => (
+                              <button key={m} type="button" onClick={() => setAdvancePayMethod(m)}
+                                className={`flex-1 py-1.5 text-[10px] font-bold rounded-md flex items-center justify-center gap-1 transition-all ${advancePayMethod === m ? (m === 'cash' ? 'bg-white text-emerald-700 shadow-sm' : 'bg-white text-blue-700 shadow-sm') : 'text-gray-500'}`}>
+                                {m === 'cash' ? (
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                                ) : (
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                                )}
+                                {m === 'cash' ? t('cash') : t('cardPOS')}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder-gray-400"
+                              type="number" min="1" placeholder={`Amount (${currencyObj.symbol})`}
+                              value={advancePayAmt} onChange={(e) => setAdvancePayAmt(e.target.value)}
+                              autoFocus
+                            />
+                            <button onClick={() => handleAdvancePay(adv)}
+                              className="px-3 py-2 text-white text-xs font-semibold rounded-xl transition-colors" style={{ backgroundColor: '#a68a64' }}>{t('add')}</button>
+                            <button onClick={() => { setAdvancePayOpen(null); setAdvancePayMethod('cash'); }}
+                              className="px-3 py-2 border border-gray-200 text-gray-500 text-xs font-medium rounded-xl hover:bg-gray-50 transition-colors">{t('cancel')}</button>
+                          </div>
                         </div>
                       )}
 
                       {/* Actions */}
                       <div className="flex gap-2 pt-1">
                         {!fullyCleared ? (
-                          <button onClick={() => { setAdvancePayOpen(isPayOpen ? null : adv.id); setAdvancePayAmt(''); }}
+                          <button onClick={() => { setAdvancePayOpen(isPayOpen ? null : adv.id); setAdvancePayAmt(''); setAdvancePayMethod('cash'); }}
                             className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors text-xs font-semibold">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                             {t('addPayment')}
@@ -2712,9 +3609,26 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
                     value={advanceForm.description} onChange={(e) => setAdvanceForm((f) => ({ ...f, description: e.target.value }))}
                     placeholder={t('advanceRepairPlaceholder')} />
                 </div>
+                {/* Payment Method */}
+                <div className="mb-3">
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">{t('paymentMethod')}</label>
+                  <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg w-full sm:w-64">
+                    {['cash', 'card'].map((m) => (
+                      <button key={m} type="button" onClick={() => setAdvanceForm((f) => ({ ...f, paymentMethod: m }))}
+                        className={`flex-1 py-2 text-xs font-bold rounded-md flex items-center justify-center gap-1.5 transition-all ${advanceForm.paymentMethod === m ? (m === 'cash' ? 'bg-white text-emerald-700 shadow-sm' : 'bg-white text-blue-700 shadow-sm') : 'text-gray-500'}`}>
+                        {m === 'cash' ? (
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                        )}
+                        {m === 'cash' ? t('cash') : t('cardPOS')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {advanceFormError && <p className="text-xs text-red-500 mb-3">{advanceFormError}</p>}
                 <div className="flex gap-3">
-                  <button onClick={() => { setAddAdvanceOpen(false); setAdvanceFormError(''); setAdvanceForm({ customerName: '', phone: '', description: '', totalAmount: '', advancePaid: '', productCost: '', email: '' }); }}
+                  <button onClick={() => { setAddAdvanceOpen(false); setAdvanceFormError(''); setAdvanceForm({ customerName: '', phone: '', description: '', totalAmount: '', advancePaid: '', productCost: '', email: '', paymentMethod: 'cash' }); }}
                     className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors text-sm">{t('cancel')}</button>
                   <button onClick={handleAddAdvance}
                     className="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors text-sm shadow-sm">{t('saveEntry')}</button>
@@ -4560,6 +5474,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
               subject: `Purchase Receipt – ${activeShop.name}`,
               message: `Dear ${shSellForm.buyerName || 'Customer'},\n\nThank you for your purchase!\nItem: ${item.itemName}${item.brand ? ' (' + item.brand + ')' : ''}\nSale Price: ${shSellForm.sellPrice}\nDate: ${new Date().toLocaleDateString()}\n\nThank you!\n${activeShop.name}`,
               shopName: activeShop.name,
+              emailCfg: emailSettings,
             });
           }
           setShSellOpen(null); setShSellForm({ sellPrice: '', buyerName: '', buyerPhone: '', buyerEmail: '' });
@@ -5015,7 +5930,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
           : contacts;
         const emailCfg = emailSettings;
         const isDisabled = emailCfg.enabled === false;
-        const isUnconfigured = !emailCfg.serviceId || !emailCfg.templateId || !emailCfg.publicKey;
+        const isUnconfigured = !emailCfg.brevoApiKey || !emailCfg.brevoSenderEmail;
 
         const BROADCAST_TEMPLATES = [
           {
@@ -5055,6 +5970,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
               subject: broadcastForm.subject,
               message: personalMessage,
               shopName: activeShop?.name,
+              emailCfg: emailSettings,
             });
             if (res.success) sent++; else failed++;
             setBroadcastProgress({ sent, failed, total: targets.length });
@@ -5073,6 +5989,7 @@ export default function Dashboard({ searchOpen, setSearchOpen, searchQuery, setS
             subject: manualEmailForm.subject,
             message: `${manualEmailForm.phone ? `Phone: ${manualEmailForm.phone}\n` : ''}${manualEmailForm.message}`,
             shopName: activeShop?.name,
+            emailCfg: emailSettings,
           });
           setManualEmailSending(false);
           setManualEmailResult(res);

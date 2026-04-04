@@ -62,8 +62,8 @@ export function deleteContact(id) {
 /**
  * Send a notification email to a client.
  */
-export async function sendClientEmail({ to, toName, subject, message, shopName }) {
-  const settings = getEmailSettings();
+export async function sendClientEmail({ to, toName, subject, message, shopName, emailCfg }) {
+  const settings = emailCfg || getEmailSettings();
   const base = { to, toName: toName || 'Customer', subject, message, shopName };
 
   if (!to || !to.includes('@')) {

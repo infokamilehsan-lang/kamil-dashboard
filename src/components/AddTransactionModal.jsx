@@ -22,6 +22,7 @@ export default function AddTransactionModal({ onClose }) {
   });
   const [discountType, setDiscountType] = useState('none'); // 'none' | 'percent' | 'flat'
   const [discountValue, setDiscountValue] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'card'
   const [error, setError] = useState('');
   const [scanning, setScanning] = useState(false);
 
@@ -128,6 +129,7 @@ export default function AddTransactionModal({ onClose }) {
       type: txType,
       category,
       date,
+      paymentMethod,
     });
 
     // Keep inventory and finance in sync when user records a product sale from Add Transaction.
@@ -317,6 +319,40 @@ export default function AddTransactionModal({ onClose }) {
               </div>
             )}
           </div>
+
+          {/* Payment Method — Cash / Card (POS) */}
+          {txType === 'income' && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-600 mb-2">{t('paymentMethod')}</label>
+              <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+                {['cash', 'card'].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPaymentMethod(m)}
+                    className={`flex-1 py-2 text-sm font-semibold rounded-lg flex items-center justify-center gap-2 transition-all ${
+                      paymentMethod === m
+                        ? m === 'cash'
+                          ? 'bg-emerald-100 text-emerald-800 shadow-sm'
+                          : 'bg-blue-100 text-blue-800 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {m === 'cash' ? (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                    )}
+                    {m === 'cash' ? t('cash') : t('cardPOS')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Category */}
           <div>
