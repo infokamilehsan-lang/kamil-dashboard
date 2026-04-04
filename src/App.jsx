@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Component } from 'react';
 import { ShopProvider } from './context/ShopContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { LanguageProvider } from './context/LanguageContext';
@@ -7,6 +7,29 @@ import ShopManager from './components/ShopManager';
 import Dashboard from './components/Dashboard';
 import LoginPage from './components/LoginPage';
 import './index.css';
+
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ position: 'fixed', inset: 0, background: '#0c0a09', color: '#f87171', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: 'monospace', fontSize: '13px', gap: '12px' }}>
+          <div style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '16px' }}>App Error</div>
+          <div style={{ background: '#1c1917', border: '1px solid #7f1d1d', borderRadius: '8px', padding: '16px', maxWidth: '100%', wordBreak: 'break-all', whiteSpace: 'pre-wrap', maxHeight: '60vh', overflow: 'auto' }}>
+            {this.state.error?.message || String(this.state.error)}
+            {'\n\n'}
+            {this.state.error?.stack}
+          </div>
+          <button onClick={() => { localStorage.clear(); window.location.reload(); }} style={{ background: '#f59e0b', color: '#000', border: 'none', borderRadius: '8px', padding: '10px 20px', fontWeight: 'bold', cursor: 'pointer' }}>
+            Clear & Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -53,10 +76,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
