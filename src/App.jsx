@@ -26,7 +26,7 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div style={{ position: 'fixed', inset: 0, background: '#0c0a09', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );

@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+:root {
+  color-scheme: dark;
+}
+
 html, body, #root {
   overflow-x: hidden;
   width: 100%;
@@ -7,6 +11,16 @@ html, body, #root {
   height: 100%;
   background: #0c0a09;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Fix iOS autofill white background on inputs */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0px 1000px #1c1917 inset !important;
+  -webkit-text-fill-color: #fff !important;
+  caret-color: #fff;
 }
 
 html {
