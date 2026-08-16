@@ -8,14 +8,18 @@ const INCOME_CATEGORY_KEYS = ['cat_Sales', 'cat_Services', 'cat_Catering', 'cat_
 const EXPENSE_CATEGORY_KEYS = ['cat_Inventory', 'cat_Rent', 'cat_Utilities', 'cat_Payroll', 'cat_Equipment', 'cat_Supplies', 'cat_Marketing', 'cat_Maintenance', 'cat_OtherExpense'];
 
 export default function AddTransactionModal({ onClose }) {
-  const { addTransaction, addSkuMovement, activeShop } = useShop();
-  const { t } = useLanguage();
+  const { addTransaction, addSkuMovement, updateSecondhand, activeShop } = useShop();
+  const { t, locale } = useLanguage();
+  const it = String(locale).toLowerCase().startsWith('it');
   const [txType, setTxType] = useState('income');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [saleSkuId, setSaleSkuId] = useState('');
+  const [saleSecondhandId, setSaleSecondhandId] = useState('');
   const [saleQty, setSaleQty] = useState('1');
+  const [skuPickerOpen, setSkuPickerOpen] = useState(false);
+  const [productPickerTab, setProductPickerTab] = useState('inventory');
   const [date, setDate] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -43,8 +47,11 @@ export default function AddTransactionModal({ onClose }) {
         : 0;
   const finalAmount = Math.max(0, rawAmount - discountAmount);
   const skus = activeShop?.skus || [];
+  const secondhandItems = (activeShop?.secondhand || []).filter((item) => item.status !== 'sold');
   const isSalesFlow = txType === 'income';
   const selectedSku = skus.find((sk) => sk.id === saleSkuId);
+  const selectedSecondhand = secondhandItems.find((item) => item.id === saleSecondhandId);
+  const productSalePrice = (item) => Number(item?.sellPrice ?? item?.salePrice ?? item?.price ?? item?.expectedSellPrice ?? item?.buyPrice) || 0;
   const canSyncInventory = txType === 'income' && skus.length > 0;
 
   const autoMatchedSku = useMemo(() => {
@@ -103,6 +110,13 @@ export default function AddTransactionModal({ onClose }) {
     setSaleQty((prev) => (prev === '1' || !prev ? parsedSaleQty : prev));
   }, [isSalesFlow, parsedSaleQty]);
 
+  useEffect(() => {
+    const product = selectedSecondhand || selectedSku;
+    if (!product) return;
+    const price = productSalePrice(product);
+    setAmount(price > 0 ? String(price) : '');
+  }, [saleSecondhandId, saleSkuId]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!description.trim()) { setError(t('descriptionRequired')); return; }
@@ -119,18 +133,28 @@ export default function AddTransactionModal({ onClose }) {
       if (qty > Number(targetSku.stock || 0)) { setError('Sold quantity is greater than current stock'); return; }
     }
 
-    addTransaction({
-      description: description.trim(),
-      amount: finalAmount,
-      originalAmount: discountAmount > 0 ? rawAmount : undefined,
-      discountType: discountAmount > 0 ? discountType : undefined,
-      discountValue: discountAmount > 0 ? discVal : undefined,
-      discountAmount: discountAmount > 0 ? discountAmount : undefined,
-      type: txType,
-      category,
-      date,
-      paymentMethod,
-    });
+    if (selectedSecondhand) {
+      updateSecondhand(activeShop.id, selectedSecondhand.id, {
+        status: 'sold',
+        sellPrice: finalAmount,
+        sellDate: date,
+        paymentMethod,
+        soldVia: 'transaction',
+      });
+    } else {
+      addTransaction({
+        description: description.trim(),
+        amount: finalAmount,
+        originalAmount: discountAmount > 0 ? rawAmount : undefined,
+        discountType: discountAmount > 0 ? discountType : undefined,
+        discountValue: discountAmount > 0 ? discVal : undefined,
+        discountAmount: discountAmount > 0 ? discountAmount : undefined,
+        type: txType,
+        category,
+        date,
+        paymentMethod,
+      });
+    }
 
     // Keep inventory and finance in sync when user records a product sale from Add Transaction.
     if (canSyncInventory && targetSku) {
@@ -151,16 +175,17 @@ export default function AddTransactionModal({ onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+    <div className="anim-lbx-bg fixed inset-0 bg-black/55 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div className="anim-lightbox bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl overflow-hidden border border-white/40">
         {/* Header */}
-        <div className="p-6 bg-linear-to-r from-amber-400 to-amber-600">
+        <div className="p-6 sm:p-7 relative overflow-hidden" style={{ background: 'radial-gradient(circle at 90% 0,rgba(255,255,255,.8),transparent 38%),linear-gradient(135deg,#c6ff34,#f1fec8)' }}>
+          <div className="absolute -right-12 -top-16 w-40 h-40 rounded-full border border-black/8" />
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{t('addTransaction')}</h2>
-              <p className="text-gray-900/80 text-sm mt-0.5">{t('recordNewEntry')}</p>
+              <p className="text-[10px] uppercase tracking-[.18em] font-black text-gray-600">{t('recordNewEntry')}</p>
+              <h2 className="text-2xl font-black tracking-[-.04em] text-gray-900 mt-1">{t('addTransaction')}</h2>
             </div>
-            <button onClick={onClose} className="text-gray-900/70 hover:text-gray-900 transition-colors p-1 rounded-lg hover:bg-white/10">
+            <button onClick={onClose} className="relative w-10 h-10 flex items-center justify-center text-gray-900 transition-colors rounded-full bg-white/65 border border-black/10 hover:bg-white">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -168,9 +193,9 @@ export default function AddTransactionModal({ onClose }) {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
           {/* Type Toggle */}
-          <div className="flex gap-2 p-1 bg-[#582f0e] rounded-xl">
+          <div className="grid grid-cols-2 gap-2 p-1.5 bg-gray-100 rounded-2xl border border-black/5">
             {['income', 'expense'].map((tp) => (
               <button
                 key={tp}
@@ -179,15 +204,17 @@ export default function AddTransactionModal({ onClose }) {
                   setTxType(tp);
                   setCategory('');
                   setSaleSkuId('');
+                  setSaleSecondhandId('');
                   setSaleQty('1');
                   setError('');
                 }}
-                className={`flex-1 py-2 text-sm font-semibold rounded-lg capitalize transition-all ${txType === tp
+                className={`flex-1 py-2.5 text-sm font-black rounded-xl capitalize transition-all border ${txType === tp
                     ? tp === 'income'
-                      ? 'bg-amber-100 text-amber-900 shadow-sm'
-                      : 'bg-amber-100 text-amber-900 shadow-sm'
-                    : 'text-amber-200 hover:text-white'
+                      ? 'text-gray-950 shadow-md border-lime-400'
+                      : 'text-white shadow-md border-red-600'
+                    : 'text-gray-500 hover:text-gray-900 border-transparent'
                   }`}
+                style={txType === tp ? { background: tp === 'income' ? '#c6ff34' : '#dc2626' } : undefined}
               >
                 {tp === 'income' ? t('plusIncomeBtn') : t('minusExpenseBtn')}
               </button>
@@ -195,6 +222,7 @@ export default function AddTransactionModal({ onClose }) {
           </div>
 
           {/* Description */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_.65fr] gap-4 items-start">
           <div>
             <label className="block text-sm font-semibold text-gray-600 mb-1.5">{t('description')}</label>
             <div className="relative flex gap-2">
@@ -252,10 +280,11 @@ export default function AddTransactionModal({ onClose }) {
               <DatePicker value={date} onChange={(v) => setDate(v)} />
             </div>
           </div>
+          </div>
 
           {/* Discount */}
-          <div className="border border-amber-200 bg-amber-50 rounded-xl p-4 space-y-3">
-            <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">{t('discount')} <span className="font-normal normal-case text-amber-500">({t('discountOptional')})</span></p>
+          <div className="border border-lime-200 rounded-2xl p-3 space-y-2" style={{ background: '#f8ffe8' }}>
+            <p className="text-xs font-black text-gray-700 uppercase tracking-wide">{t('discount')} <span className="font-normal normal-case text-gray-400">({t('discountOptional')})</span></p>
             {/* Type selector */}
             <div className="flex gap-2">
               {[['none', t('noDiscount')], ['percent', t('percentDiscount')], ['flat', t('flatAmount')]].map(([v, l]) => (
@@ -366,6 +395,7 @@ export default function AddTransactionModal({ onClose }) {
                     setCategory(cat);
                     if (cat !== 'cat_Sales') {
                       setSaleSkuId('');
+                      setSaleSecondhandId('');
                       setSaleQty('1');
                     }
                     setError('');
@@ -383,22 +413,14 @@ export default function AddTransactionModal({ onClose }) {
             </div>
           </div>
 
-          {isSalesFlow && skus.length > 0 && (
+          {isSalesFlow && (skus.length > 0 || secondhandItems.length > 0) && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-1.5">Product (SKU)</label>
-                <select
-                  value={saleSkuId}
-                  onChange={(e) => { setSaleSkuId(e.target.value); setError(''); }}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
-                >
-                  <option value="">Select product</option>
-                  {skus.map((sk) => (
-                    <option key={sk.id} value={sk.id}>
-                      {sk.code} - {sk.name} (stock: {Number(sk.stock) || 0})
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-sm font-semibold text-gray-600 mb-1.5">{it ? 'Prodotto / Usato' : 'Product / Secondhand'}</label>
+                <div className="relative">
+                  <button type="button" onClick={() => { setSkuPickerOpen((open) => !open); setProductPickerTab(selectedSecondhand ? 'secondhand' : 'inventory'); }} className="w-full px-3 py-2.5 border border-lime-200 rounded-xl bg-white flex items-center justify-between gap-3 text-left focus:outline-none focus:ring-2 focus:ring-lime-300"><span className="min-w-0">{selectedSecondhand ? <><strong className="block text-xs truncate">{selectedSecondhand.itemName}</strong><span className="block text-[10px] text-gray-400 truncate">Usato · {[selectedSecondhand.brand, selectedSecondhand.model].filter(Boolean).join(' · ')}</span></> : selectedSku ? <><strong className="block text-xs truncate">{selectedSku.name}</strong><span className="block text-[10px] text-gray-400 truncate">{selectedSku.code}{selectedSku.model ? ` · ${selectedSku.model}` : ''} · Stock {Number(selectedSku.stock) || 0}</span></> : <span className="text-sm text-gray-400">Inventario / Usato</span>}</span><svg className={`w-4 h-4 shrink-0 transition-transform ${skuPickerOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 9l6 6 6-6" /></svg></button>
+                  {skuPickerOpen && <div className="absolute z-[80] left-0 right-0 bottom-full mb-2 rounded-2xl border border-black/10 bg-white shadow-2xl overflow-hidden"><div className="grid grid-cols-2 gap-1.5 p-2 border-b border-gray-100 bg-white"><button type="button" onClick={() => setProductPickerTab('inventory')} className="px-3 py-2 rounded-xl text-xs font-black" style={{ background: productPickerTab === 'inventory' ? '#c6ff34' : '#f3f4f6' }}>Inventario ({skus.length})</button><button type="button" onClick={() => setProductPickerTab('secondhand')} className="px-3 py-2 rounded-xl text-xs font-black" style={{ background: productPickerTab === 'secondhand' ? '#c6ff34' : '#f3f4f6' }}>Usato ({secondhandItems.length})</button></div><div className="h-52 overflow-y-scroll overscroll-contain p-1.5" style={{ WebkitOverflowScrolling: 'touch' }}><button type="button" onClick={() => { setSaleSkuId(''); setSaleSecondhandId(''); setSkuPickerOpen(false); }} className="w-full rounded-xl px-3 py-2 text-left text-xs font-bold text-gray-400 hover:bg-gray-50">No product link</button>{productPickerTab === 'secondhand' && (secondhandItems.length ? secondhandItems.map((item) => <button type="button" key={item.id} onClick={() => { setSaleSecondhandId(item.id); setSaleSkuId(''); setSkuPickerOpen(false); setCategory('cat_Sales'); setError(''); setDescription(item.itemName || item.model || 'Usato'); setAmount(String(productSalePrice(item) || '')); setSaleQty('1'); }} className="w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-lime-50" style={saleSecondhandId === item.id ? { background: '#c6ff34' } : undefined}><span className="min-w-0"><strong className="block text-xs truncate">{item.itemName || item.model}</strong><span className="block text-[10px] text-gray-400 truncate">{[item.brand, item.model, item.imei].filter(Boolean).join(' · ')}</span></span><span className="shrink-0 px-2 py-1 rounded-lg bg-[#f1fec8] text-[9px] font-black">{productSalePrice(item).toLocaleString('it-IT')}</span></button>) : <p className="p-5 text-center text-xs text-gray-400">Nessun prodotto usato disponibile</p>)}{productPickerTab === 'inventory' && (skus.length ? skus.map((sk) => <button type="button" key={sk.id} onClick={() => { setSaleSkuId(sk.id); setSaleSecondhandId(''); setSkuPickerOpen(false); setError(''); setAmount(String(productSalePrice(sk) || '')); setDescription(sk.name || ''); setCategory('cat_Sales'); }} className="w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-lime-50" style={saleSkuId === sk.id ? { background: '#c6ff34' } : undefined}><span className="min-w-0"><strong className="block text-xs truncate">{sk.name}</strong><span className="block text-[10px] text-gray-400 truncate">{sk.code}{sk.model ? ` · ${sk.model}` : ''}</span></span><span className="shrink-0 text-right"><strong className="block text-[10px]">{productSalePrice(sk).toLocaleString('it-IT')}</strong><small className={`${Number(sk.stock) <= 0 ? 'text-red-500' : 'text-gray-500'} text-[9px] font-black`}>{Number(sk.stock) || 0} stock</small></span></button>) : <p className="p-5 text-center text-xs text-gray-400">Nessun prodotto in inventario</p>)}</div></div>}
+                </div>
                 {autoMatchedSku && !saleSkuId && (
                   <p className="text-xs text-emerald-700 mt-1">Auto matched: {autoMatchedSku.code} - {autoMatchedSku.name}</p>
                 )}
@@ -406,7 +428,7 @@ export default function AddTransactionModal({ onClose }) {
                   <p className="text-xs text-emerald-700 mt-1">Auto linked from description: {autoMatchedSku.code}</p>
                 )}
               </div>
-              <div>
+              <div className={selectedSecondhand ? 'hidden' : ''}>
                 <label className="block text-sm font-semibold text-gray-600 mb-1.5">Sold Qty</label>
                 <input
                   type="number"
@@ -437,7 +459,8 @@ export default function AddTransactionModal({ onClose }) {
             </button>
             <button
               type="submit"
-              className={`flex-1 px-4 py-2.5 text-white font-semibold rounded-xl transition-colors shadow-sm bg-amber-500 hover:bg-amber-400`}
+              className="flex-1 px-4 py-3 text-gray-950 font-black rounded-xl transition-all shadow-sm hover:-translate-y-0.5 hover:shadow-lg border border-black/10"
+              style={{ background: '#c6ff34' }}
             >
               {t('add')}
             </button>

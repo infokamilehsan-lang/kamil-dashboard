@@ -1,5 +1,679 @@
 @import "tailwindcss";
 
+/* Dashboard brand palette: Vanilla + Lime, with black as the neutral ink. */
+.brand-dashboard {
+  --brand-vanilla: #f1fec8;
+  --brand-lime: #c6ff34;
+  --brand-white: #ffffff;
+  --brand-ink: #101408;
+  --brand-muted: #4d5732;
+  --brand-line: rgba(16, 20, 8, 0.14);
+  min-height: 100vh;
+  padding-top: calc(4rem + env(safe-area-inset-top));
+  color: var(--brand-ink);
+  background:
+    radial-gradient(circle at 96% 2%, rgba(198, 255, 52, 0.16), transparent 26rem),
+    radial-gradient(circle at 3% 30%, rgba(241, 254, 200, 0.65), transparent 30rem),
+    var(--brand-white);
+}
+
+@media (max-width: 639px) {
+  .brand-dashboard {
+    padding-top: calc(3.5rem + env(safe-area-inset-top));
+  }
+}
+
+.brand-dashboard .brand-navbar {
+  width: 100%;
+  color: var(--brand-ink) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-bottom: 1px solid var(--brand-line);
+  box-shadow: 0 10px 32px rgba(67, 86, 13, 0.12) !important;
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+}
+
+.brand-dashboard .dashboard-hero {
+  color: var(--brand-ink);
+  background:
+    radial-gradient(circle at 82% 18%, rgba(241, 254, 200, 0.85), transparent 24%),
+    linear-gradient(125deg, var(--brand-lime) 0%, #b9ec31 55%, var(--brand-vanilla) 135%) !important;
+  border: 1px solid rgba(16, 20, 8, 0.12);
+  box-shadow: 0 22px 50px rgba(78, 105, 8, 0.2) !important;
+}
+
+/* Vanilla is the universal surface color. */
+.brand-dashboard .bg-gray-50,
+.brand-dashboard .bg-gray-100,
+.brand-dashboard .bg-slate-50,
+.brand-dashboard .bg-stone-50,
+.brand-dashboard [class*="bg-amber-50"],
+.brand-dashboard [class*="bg-emerald-50"],
+.brand-dashboard [class*="bg-blue-50"],
+.brand-dashboard [class*="bg-sky-50"],
+.brand-dashboard [class*="bg-purple-50"],
+.brand-dashboard [class*="bg-red-50"],
+.brand-dashboard [class*="bg-orange-50"] {
+  background-color: var(--brand-vanilla) !important;
+}
+
+.brand-dashboard .bg-white {
+  background-color: var(--brand-white) !important;
+}
+
+/* Lime is the universal action/accent color. */
+.brand-dashboard [class*="bg-amber-4"],
+.brand-dashboard [class*="bg-amber-5"],
+.brand-dashboard [class*="bg-amber-6"],
+.brand-dashboard [class*="bg-emerald-4"],
+.brand-dashboard [class*="bg-emerald-5"],
+.brand-dashboard [class*="bg-emerald-6"],
+.brand-dashboard [class*="bg-green-4"],
+.brand-dashboard [class*="bg-green-5"],
+.brand-dashboard [class*="bg-green-6"],
+.brand-dashboard [class*="bg-blue-4"],
+.brand-dashboard [class*="bg-blue-5"],
+.brand-dashboard [class*="bg-blue-6"],
+.brand-dashboard [class*="bg-sky-4"],
+.brand-dashboard [class*="bg-sky-5"],
+.brand-dashboard [class*="bg-purple-4"],
+.brand-dashboard [class*="bg-purple-5"],
+.brand-dashboard [class*="bg-violet-5"],
+.brand-dashboard [class*="bg-orange-4"],
+.brand-dashboard [class*="bg-orange-5"],
+.brand-dashboard [class*="bg-red-4"],
+.brand-dashboard [class*="bg-red-5"] {
+  color: var(--brand-ink) !important;
+  background-color: var(--brand-lime) !important;
+}
+
+.brand-dashboard button:not([class*="bg-transparent"]),
+.brand-dashboard a[class*="bg-"] {
+  border-color: rgba(16, 20, 8, 0.14);
+}
+
+.brand-dashboard button[class*="bg-amber"],
+.brand-dashboard button[class*="bg-emerald"],
+.brand-dashboard button[class*="bg-green"],
+.brand-dashboard button[class*="bg-blue"],
+.brand-dashboard button[class*="bg-purple"],
+.brand-dashboard button[class*="bg-red"],
+.brand-dashboard button[class*="bg-orange"] {
+  color: var(--brand-ink) !important;
+  background: var(--brand-lime) !important;
+  box-shadow: 0 10px 24px rgba(92, 126, 0, 0.2) !important;
+}
+
+/* Normalize old colored headings, icons and borders to brand ink. */
+.brand-dashboard [class*="text-amber"],
+.brand-dashboard [class*="text-emerald"],
+.brand-dashboard [class*="text-green"],
+.brand-dashboard [class*="text-blue"],
+.brand-dashboard [class*="text-sky"],
+.brand-dashboard [class*="text-purple"],
+.brand-dashboard [class*="text-violet"],
+.brand-dashboard [class*="text-orange"],
+.brand-dashboard [class*="text-red"],
+.brand-dashboard [class*="text-white"],
+.brand-dashboard [class*="text-gray"],
+.brand-dashboard [class*="text-slate"],
+.brand-dashboard [class*="text-stone"] {
+  color: var(--brand-ink) !important;
+}
+
+.brand-dashboard [class*="border-gray"],
+.brand-dashboard [class*="border-slate"],
+.brand-dashboard [class*="border-stone"],
+.brand-dashboard [class*="border-amber"],
+.brand-dashboard [class*="border-emerald"],
+.brand-dashboard [class*="border-blue"],
+.brand-dashboard [class*="border-red"] {
+  border-color: var(--brand-line) !important;
+}
+
+.brand-dashboard input,
+.brand-dashboard select,
+.brand-dashboard textarea {
+  color: var(--brand-ink) !important;
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  border-color: var(--brand-line) !important;
+}
+
+.brand-dashboard input:focus,
+.brand-dashboard select:focus,
+.brand-dashboard textarea:focus {
+  border-color: var(--brand-lime) !important;
+  box-shadow: 0 0 0 3px rgba(198, 255, 52, 0.35) !important;
+}
+
+/* Convert legacy inline dashboard gradients to the two-color system. */
+.brand-dashboard [style*="#7a4f2a"],
+.brand-dashboard [style*="#a06835"],
+.brand-dashboard [style*="#6b3a1f"],
+.brand-dashboard [style*="#936639"],
+.brand-dashboard [style*="#582f0e"],
+.brand-dashboard [style*="#1e40af"],
+.brand-dashboard [style*="#3b82f6"] {
+  color: var(--brand-ink) !important;
+  background: linear-gradient(135deg, var(--brand-lime), var(--brand-vanilla)) !important;
+}
+
+.brand-dashboard .shadow-sm,
+.brand-dashboard .shadow-md,
+.brand-dashboard .shadow-lg,
+.brand-dashboard .shadow-xl,
+.brand-dashboard .shadow-2xl {
+  --tw-shadow-color: rgba(67, 86, 13, 0.16) !important;
+}
+
+/* Strict second pass: catch every remaining chromatic Tailwind family/shade. */
+.brand-dashboard [class*="bg-amber-"],
+.brand-dashboard [class*="bg-yellow-"],
+.brand-dashboard [class*="bg-lime-"],
+.brand-dashboard [class*="bg-green-"],
+.brand-dashboard [class*="bg-emerald-"],
+.brand-dashboard [class*="bg-teal-"],
+.brand-dashboard [class*="bg-cyan-"],
+.brand-dashboard [class*="bg-sky-"],
+.brand-dashboard [class*="bg-blue-"],
+.brand-dashboard [class*="bg-indigo-"],
+.brand-dashboard [class*="bg-violet-"],
+.brand-dashboard [class*="bg-purple-"],
+.brand-dashboard [class*="bg-pink-"],
+.brand-dashboard [class*="bg-rose-"],
+.brand-dashboard [class*="bg-orange-"],
+.brand-dashboard [class*="bg-red-"] {
+  color: var(--brand-ink) !important;
+  background-color: var(--brand-lime) !important;
+  background-image: none !important;
+}
+
+.brand-dashboard [class*="bg-gray-"],
+.brand-dashboard [class*="bg-slate-"],
+.brand-dashboard [class*="bg-stone-"],
+.brand-dashboard [class*="bg-zinc-"],
+.brand-dashboard [class*="bg-neutral-"] {
+  background-color: var(--brand-vanilla) !important;
+}
+
+.brand-dashboard [class*="text-yellow-"],
+.brand-dashboard [class*="text-lime-"],
+.brand-dashboard [class*="text-teal-"],
+.brand-dashboard [class*="text-cyan-"],
+.brand-dashboard [class*="text-indigo-"],
+.brand-dashboard [class*="text-pink-"],
+.brand-dashboard [class*="text-rose-"] {
+  color: var(--brand-ink) !important;
+}
+
+.brand-dashboard [class*="border-yellow-"],
+.brand-dashboard [class*="border-lime-"],
+.brand-dashboard [class*="border-green-"],
+.brand-dashboard [class*="border-teal-"],
+.brand-dashboard [class*="border-cyan-"],
+.brand-dashboard [class*="border-sky-"],
+.brand-dashboard [class*="border-indigo-"],
+.brand-dashboard [class*="border-violet-"],
+.brand-dashboard [class*="border-purple-"],
+.brand-dashboard [class*="border-pink-"],
+.brand-dashboard [class*="border-rose-"],
+.brand-dashboard [class*="border-orange-"] {
+  border-color: var(--brand-line) !important;
+}
+
+.brand-dashboard [class*="ring-amber-"],
+.brand-dashboard [class*="ring-yellow-"],
+.brand-dashboard [class*="ring-green-"],
+.brand-dashboard [class*="ring-emerald-"],
+.brand-dashboard [class*="ring-cyan-"],
+.brand-dashboard [class*="ring-blue-"],
+.brand-dashboard [class*="ring-indigo-"],
+.brand-dashboard [class*="ring-purple-"],
+.brand-dashboard [class*="ring-red-"] {
+  --tw-ring-color: rgba(198, 255, 52, 0.55) !important;
+}
+
+.brand-dashboard [class*="shadow-amber-"],
+.brand-dashboard [class*="shadow-green-"],
+.brand-dashboard [class*="shadow-emerald-"],
+.brand-dashboard [class*="shadow-blue-"],
+.brand-dashboard [class*="shadow-purple-"],
+.brand-dashboard [class*="shadow-red-"] {
+  --tw-shadow-color: rgba(92, 126, 0, 0.22) !important;
+}
+
+/* Inline legacy gradients are used by hero cards, chart cards and modal headers. */
+.brand-dashboard [style*="linear-gradient"] {
+  background-image: linear-gradient(135deg, var(--brand-lime), var(--brand-vanilla)) !important;
+  color: var(--brand-ink) !important;
+}
+
+.brand-dashboard progress,
+.brand-dashboard [role="progressbar"] {
+  accent-color: var(--brand-lime);
+}
+
+/* Balanced 60/30/10 composition: pale badges/sections are Vanilla, not Lime. */
+.brand-dashboard [class*="bg-amber-50"],
+.brand-dashboard [class*="bg-amber-100"],
+.brand-dashboard [class*="bg-yellow-50"],
+.brand-dashboard [class*="bg-yellow-100"],
+.brand-dashboard [class*="bg-lime-50"],
+.brand-dashboard [class*="bg-lime-100"],
+.brand-dashboard [class*="bg-green-50"],
+.brand-dashboard [class*="bg-green-100"],
+.brand-dashboard [class*="bg-emerald-50"],
+.brand-dashboard [class*="bg-emerald-100"],
+.brand-dashboard [class*="bg-teal-50"],
+.brand-dashboard [class*="bg-teal-100"],
+.brand-dashboard [class*="bg-cyan-50"],
+.brand-dashboard [class*="bg-cyan-100"],
+.brand-dashboard [class*="bg-sky-50"],
+.brand-dashboard [class*="bg-sky-100"],
+.brand-dashboard [class*="bg-blue-50"],
+.brand-dashboard [class*="bg-blue-100"],
+.brand-dashboard [class*="bg-indigo-50"],
+.brand-dashboard [class*="bg-indigo-100"],
+.brand-dashboard [class*="bg-violet-50"],
+.brand-dashboard [class*="bg-violet-100"],
+.brand-dashboard [class*="bg-purple-50"],
+.brand-dashboard [class*="bg-purple-100"],
+.brand-dashboard [class*="bg-pink-50"],
+.brand-dashboard [class*="bg-pink-100"],
+.brand-dashboard [class*="bg-rose-50"],
+.brand-dashboard [class*="bg-rose-100"],
+.brand-dashboard [class*="bg-orange-50"],
+.brand-dashboard [class*="bg-orange-100"],
+.brand-dashboard [class*="bg-red-50"],
+.brand-dashboard [class*="bg-red-100"] {
+  color: var(--brand-ink) !important;
+  background-color: var(--brand-vanilla) !important;
+}
+
+/* Give white content cards a premium, quiet depth. */
+.brand-dashboard .bg-white.rounded-xl,
+.brand-dashboard .bg-white.rounded-2xl,
+.brand-dashboard .bg-white.rounded-3xl,
+.brand-dashboard .bg-white[class*="shadow-"] {
+  border-color: rgba(88, 112, 20, 0.12) !important;
+  box-shadow: 0 12px 34px rgba(74, 94, 18, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset !important;
+}
+
+.brand-dashboard button {
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease !important;
+}
+
+.brand-dashboard button:hover {
+  transform: translateY(-1px);
+}
+
+.brand-dashboard button[class*="bg-amber"],
+.brand-dashboard button[class*="bg-emerald"],
+.brand-dashboard button[class*="bg-green"],
+.brand-dashboard button[class*="bg-blue"],
+.brand-dashboard button[class*="bg-purple"],
+.brand-dashboard button[class*="bg-red"],
+.brand-dashboard button[class*="bg-orange"] {
+  background: linear-gradient(145deg, var(--brand-lime), #b5ec27) !important;
+  border: 1px solid rgba(70, 94, 7, 0.18) !important;
+  box-shadow: 0 8px 20px rgba(96, 132, 0, 0.18), 0 1px 0 rgba(255, 255, 255, 0.55) inset !important;
+}
+
+.brand-dashboard button[class*="bg-amber"]:hover,
+.brand-dashboard button[class*="bg-emerald"]:hover,
+.brand-dashboard button[class*="bg-green"]:hover,
+.brand-dashboard button[class*="bg-blue"]:hover,
+.brand-dashboard button[class*="bg-purple"]:hover,
+.brand-dashboard button[class*="bg-red"]:hover,
+.brand-dashboard button[class*="bg-orange"]:hover {
+  box-shadow: 0 12px 26px rgba(96, 132, 0, 0.26), 0 1px 0 rgba(255, 255, 255, 0.65) inset !important;
+}
+
+/* New floating header and shop hero. */
+.brand-dashboard .brand-navbar-new {
+  background: rgba(255, 255, 255, 0.86) !important;
+  border-bottom: 1px solid rgba(16, 20, 8, 0.08);
+  box-shadow: 0 12px 40px rgba(69, 88, 15, 0.09) !important;
+}
+
+.brand-dashboard .header-brand-button {
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.9rem;
+}
+
+.brand-dashboard .header-brand-button:hover {
+  background: var(--brand-vanilla);
+}
+
+.brand-dashboard .header-shop-button,
+.brand-dashboard .header-icon-button {
+  color: var(--brand-ink) !important;
+  background: var(--brand-vanilla) !important;
+  border: 1px solid rgba(16, 20, 8, 0.1) !important;
+  box-shadow: 0 4px 14px rgba(69, 88, 15, 0.07);
+}
+
+.brand-dashboard .header-shop-button:hover,
+.brand-dashboard .header-shop-button.is-open,
+.brand-dashboard .header-icon-button:hover {
+  background: var(--brand-lime) !important;
+  box-shadow: 0 8px 20px rgba(93, 127, 0, 0.18);
+}
+
+.brand-dashboard .dashboard-hero-new {
+  background:
+    radial-gradient(circle at 78% -20%, rgba(255,255,255,.9), transparent 34%),
+    linear-gradient(120deg, var(--brand-lime) 0%, #dcff7e 55%, var(--brand-vanilla) 100%) !important;
+  border: 1px solid rgba(16, 20, 8, 0.1);
+  box-shadow: 0 14px 36px rgba(78, 105, 8, 0.12), 0 1px 0 rgba(255,255,255,.8) inset !important;
+}
+
+.brand-dashboard .dashboard-hero-new .text-white\/80,
+.brand-dashboard .dashboard-hero-new .text-white\/60,
+.brand-dashboard .dashboard-hero-new .text-white\/50,
+.brand-dashboard .dashboard-hero-new .text-white\/40 {
+  color: rgba(16, 20, 8, 0.58) !important;
+}
+
+.brand-dashboard .hero-action-primary,
+.brand-dashboard .hero-action-secondary {
+  color: var(--brand-ink) !important;
+  border: 1px solid rgba(16, 20, 8, 0.12);
+}
+
+.brand-dashboard .hero-action-primary {
+  background: var(--brand-ink) !important;
+  color: var(--brand-white) !important;
+  box-shadow: 0 10px 24px rgba(16, 20, 8, 0.2) !important;
+}
+
+.brand-dashboard .hero-action-secondary {
+  background: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 8px 20px rgba(69, 88, 15, 0.1) !important;
+}
+
+.brand-dashboard .hero-action-primary:hover,
+.brand-dashboard .hero-action-secondary:hover {
+  transform: translateY(-2px) scale(1.015);
+}
+
+.brand-dashboard .hero-tabs {
+  background: rgba(255, 255, 255, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  box-shadow: 0 8px 26px rgba(70, 91, 12, 0.09) inset;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.brand-dashboard .hero-tab {
+  color: rgba(16, 20, 8, 0.68) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+}
+
+.brand-dashboard .hero-tab:hover {
+  color: var(--brand-ink) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+.brand-dashboard .hero-tab.is-active {
+  color: var(--brand-ink) !important;
+  background: var(--brand-white) !important;
+  border-color: rgba(16, 20, 8, 0.1) !important;
+  box-shadow: 0 8px 18px rgba(69, 88, 15, 0.14) !important;
+}
+
+/* Permanent left navigation — reference-style desktop sidebar. */
+@media (min-width: 1024px) {
+  .brand-dashboard .dashboard-shell {
+    width: calc(100% - 17.5rem);
+    max-width: 80rem;
+    margin-left: 17.5rem;
+    margin-right: auto;
+  }
+
+  .brand-dashboard .dashboard-hero-new {
+    min-height: 7.5rem;
+    padding-right: 0;
+  }
+
+  .brand-dashboard .hero-main-row {
+    min-height: 7.5rem;
+  }
+
+  .brand-dashboard .dashboard-sidebar {
+    position: fixed;
+    z-index: 35;
+    top: calc(env(safe-area-inset-top) + 4rem);
+    left: 0;
+    bottom: 0;
+    width: 16.5rem;
+    padding: 1.25rem 0.9rem 1rem;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: rgba(255,255,255,.97);
+    border-right: 1px solid rgba(16,20,8,.09);
+    box-shadow: 14px 0 40px rgba(69,88,15,.06);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(16,20,8,.2) transparent;
+  }
+
+  .brand-dashboard .dashboard-shell.sidebar-collapsed {
+    width: calc(100% - 5.75rem);
+    margin-left: 5.75rem;
+  }
+
+  .brand-dashboard .dashboard-shell.sidebar-collapsed .dashboard-sidebar {
+    width: 4.75rem;
+    padding-left: .55rem;
+    padding-right: .55rem;
+  }
+
+  .brand-dashboard .dashboard-shell.sidebar-collapsed .hero-tab {
+    justify-content: center;
+    padding-left: .4rem;
+    padding-right: .4rem;
+    font-size: 0;
+  }
+
+  .brand-dashboard .dashboard-shell.sidebar-collapsed .sidebar-upgrade-card { display: none; }
+
+  .brand-dashboard .hero-tabs {
+    width: 100%;
+    min-width: 0;
+    min-height: auto;
+    padding: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.3rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .brand-dashboard .hero-tab {
+    width: 100%;
+    min-height: 3rem;
+    justify-content: flex-start;
+    padding: 0.72rem 0.9rem;
+    border-radius: 0.95rem;
+    font-size: 0.84rem;
+  }
+
+  .brand-dashboard .hero-tab span {
+    width: 1.8rem;
+    height: 1.8rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.62rem;
+    background: transparent;
+  }
+
+  .brand-dashboard .hero-tab.is-active {
+    background: linear-gradient(110deg, var(--brand-lime), #ddff83) !important;
+    border-color: rgba(16,20,8,.06) !important;
+    box-shadow: 0 9px 22px rgba(92,126,0,.16) !important;
+  }
+
+  .brand-dashboard .hero-tab.is-active span {
+    background: rgba(255,255,255,.48);
+  }
+
+  .brand-dashboard .sidebar-upgrade-card {
+    margin-top: auto;
+    padding: 1rem;
+    border-radius: 1.25rem;
+    background: linear-gradient(145deg, var(--brand-vanilla), rgba(198,255,52,.34));
+    border: 1px solid rgba(16,20,8,.08);
+    box-shadow: 0 14px 32px rgba(78,105,8,.1);
+  }
+
+  .brand-dashboard .sidebar-upgrade-icon {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.65rem;
+    background: var(--brand-lime);
+    margin-bottom: 0.65rem;
+  }
+
+  .brand-dashboard .sidebar-upgrade-icon svg { width: 1.15rem; height: 1.15rem; }
+  .brand-dashboard .sidebar-upgrade-title { font-size: .88rem; font-weight: 900; }
+  .brand-dashboard .sidebar-upgrade-copy { color: var(--brand-muted); font-size: .68rem; line-height: 1.5; margin-top: .3rem; }
+  .brand-dashboard .sidebar-upgrade-button {
+    width: 100%;
+    margin-top: .8rem;
+    padding: .68rem;
+    border-radius: .8rem;
+    color: var(--brand-ink) !important;
+    background: var(--brand-lime) !important;
+    border: 1px solid rgba(16,20,8,.08);
+    font-size: .75rem;
+    font-weight: 900;
+    box-shadow: 0 8px 18px rgba(92,126,0,.16);
+  }
+}
+
+.brand-dashboard .sidebar-toggle-button {
+  width: 100%;
+  min-height: 2.65rem;
+  margin-bottom: .8rem;
+  padding: .6rem .75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  color: var(--brand-ink);
+  background: var(--brand-vanilla);
+  border: 1px solid rgba(16,20,8,.1);
+  border-radius: .85rem;
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.brand-dashboard .sidebar-toggle-button:hover { background: var(--brand-lime); }
+.brand-dashboard .sidebar-toggle-button svg { width: 1rem; height: 1rem; flex: 0 0 auto; }
+.brand-dashboard .dashboard-shell.sidebar-collapsed .sidebar-toggle-button span { display: none; }
+
+.brand-dashboard .repair-command-card {
+  background: linear-gradient(145deg, #ffffff 0%, #faffeb 100%) !important;
+  border-color: rgba(84, 111, 14, .16) !important;
+  box-shadow: 0 18px 45px rgba(70, 91, 12, .1) !important;
+}
+.brand-dashboard .repair-command-card:hover { transform: translateY(-2px); box-shadow: 0 24px 55px rgba(70, 91, 12, .15) !important; }
+.brand-dashboard .repair-command-card { font-size: .82rem; }
+.brand-dashboard .repair-command-card .repair-compact-history { max-height: 5.5rem; overflow-y: auto; scrollbar-width: thin; }
+.brand-dashboard .repair-command-card .repair-orders-section { margin-top: .25rem; }
+.brand-dashboard .repair-profit-row { background: rgba(198,255,52,.16); border-color: rgba(43,124,52,.2); }
+.brand-dashboard .repair-contact-action {
+  min-height: 2rem; display: flex; align-items: center; justify-content: center; gap: .2rem;
+  padding: .35rem .25rem; border-radius: .65rem; border: 1px solid rgba(16,20,8,.1);
+  font-size: .6rem; font-weight: 900; text-align: center;
+}
+.brand-dashboard .repair-contact-action.is-call { color: #075e28; background: #b9ffcc; border-color: #70dc8d; }
+.brand-dashboard .repair-contact-action.is-message { color: #795100; background: #fff0a6; border-color: #f1cf40; }
+.brand-dashboard .repair-contact-action.is-whatsapp { color: #08783c; background: #d0f8dc; border-color: #69d88d; }
+.brand-dashboard .repair-contact-log {
+  display: inline-flex; align-items: center; gap: .2rem; padding: .3rem .38rem; border-radius: .45rem;
+  font-size: .52rem; line-height: 1; font-weight: 900; white-space: nowrap; overflow: hidden;
+}
+.brand-dashboard .repair-contact-log.is-call { color: #075e28; background: #d9f9e1; }
+.brand-dashboard .repair-contact-log.is-whatsapp { color: #08783c; background: #d0f8dc; }
+.brand-dashboard .repair-contact-action.is-shop { color: #0754a6; background: #c8e7ff; border-color: #70b9ef; }
+.brand-dashboard .repair-contact-action.is-client { color: #795100; background: #fff0a6; border-color: #f1cf40; }
+.brand-dashboard .repair-contact-action.is-collected { color: #fff; background: #101408; border-color: #101408; }
+.brand-dashboard .repair-contact-action svg,
+.brand-dashboard .repair-workflow-button svg { width: .9rem; height: .9rem; flex: 0 0 auto; stroke-width: 1.9; }
+.brand-dashboard .repair-custody-menu {
+  position: absolute; z-index: 30; top: calc(100% + .35rem); right: 0; width: 12rem;
+  padding: .35rem; border: 1px solid rgba(16,20,8,.12); border-radius: .8rem;
+  background: #fff; box-shadow: 0 16px 35px rgba(16,20,8,.18);
+}
+.brand-dashboard .repair-custody-menu button { width: 100%; padding: .55rem .6rem; border-radius: .55rem; display: flex; align-items: center; gap: .55rem; text-align: left; font-size: .62rem; font-weight: 800; }
+.brand-dashboard .repair-custody-menu button svg { width: .95rem; height: .95rem; flex: 0 0 auto; stroke-width: 1.9; }
+.brand-dashboard .repair-custody-menu button:hover { background: #f1fec8; }
+.brand-dashboard .shop-business-chip {
+  display: inline-flex; align-items: baseline; gap: .25rem; white-space: nowrap;
+  color: #4d5732; font-size: .62rem; line-height: 1.35; font-weight: 600;
+}
+.brand-dashboard .shop-business-chip strong { color: #101408; font-weight: 900; white-space: nowrap; }
+.brand-dashboard .shop-info-line {
+  position: relative;
+  mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+}
+.brand-dashboard .shop-info-track {
+  width: max-content;
+  padding-inline: 1.5rem;
+  animation: shop-info-marquee 24s linear infinite alternate;
+}
+.brand-dashboard .shop-info-line:hover .shop-info-track { animation-play-state: paused; }
+@keyframes shop-info-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-100% + min(100%, 46rem))); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-dashboard .shop-info-track { animation: none; }
+  .brand-dashboard .shop-info-line { overflow-x: auto; mask-image: none; }
+}
+.brand-dashboard .repair-collected-log {
+  padding: .38rem .55rem; border-radius: .55rem; color: #075e28; background: #d9f9e1;
+  font-size: .56rem; font-weight: 900; text-align: center;
+}
+.brand-dashboard .repair-workflow-button {
+  min-height: 2rem; display: flex; align-items: center; justify-content: center; gap: .2rem;
+  padding: .35rem .25rem; border-radius: .65rem; font-size: .6rem; font-weight: 900;
+  border: 1px solid transparent; transition: transform .15s ease, box-shadow .15s ease;
+}
+.brand-dashboard .repair-workflow-button:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(16,20,8,.1); }
+.brand-dashboard .repair-workflow-button.is-status { color: #0754a6; background: #d6efff; border-color: #83c9f4; }
+.brand-dashboard .repair-workflow-button.is-pay { color: #0b6540; background: #c6ff34; border-color: #8dcc16; }
+.brand-dashboard .repair-workflow-button.is-whatsapp { color: #08783c; background: #d0f8dc; border-color: #69d88d; }
+.brand-dashboard .repair-workflow-button.is-edit { color: #64329a; background: #eedcff; border-color: #c49aeb; }
+.brand-dashboard .repair-workflow-button.is-print { color: #0754a6; background: #d9edff; border-color: #91c5ee; }
+.brand-dashboard .repair-workflow-button.is-delete { color: #a61b28; background: #ffe0e3; border-color: #f0a2aa; }
+
+@media (max-width: 1023px) {
+  .brand-dashboard .dashboard-sidebar {
+    position: relative;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .brand-dashboard .sidebar-upgrade-card { display: none; }
+  .brand-dashboard .hero-tabs { min-width: max-content; }
+  .brand-dashboard .dashboard-shell.sidebar-collapsed .hero-tabs { display: none; }
+  .brand-dashboard .dashboard-shell.sidebar-collapsed .dashboard-sidebar { overflow: hidden; }
+}
+
 :root {
   color-scheme: dark;
 }
@@ -9,6 +683,7 @@ html, body, #root {
   width: 100%;
   max-width: 100vw;
   height: 100%;
+  min-height: 100dvh;
   background: #0c0a09;
   -webkit-overflow-scrolling: touch;
 }
@@ -44,6 +719,14 @@ input, select, textarea, button {
 }
 input[type="date"], input[type="time"], input[type="month"] {
   font-size: 16px;
+}
+
+/* Fix: color-scheme:dark causes invisible text in light-themed inputs.
+   Tailwind text-* utilities override this where needed (e.g. text-white). */
+input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea {
+  color: #1c1917;
 }
 
 @keyframes fadeSlideUp {
@@ -193,6 +876,16 @@ input[type="date"], input[type="time"], input[type="month"] {
 }
 
 /* Login page animations */
+@media (max-width: 640px) {
+  .section-summary {
+    display: none !important;
+  }
+
+  .brand-dashboard .sidebar-toggle-button {
+    display: none !important;
+  }
+}
+
 @keyframes float {
 
   0%,
@@ -595,3 +1288,15 @@ input[type="date"], input[type="time"], input[type="month"] {
 .kpi-card.accent-purple:hover,  .metric-card.accent-purple:hover  { box-shadow: 0 14px 30px -6px rgba(168,85,247,0.28); }
 .kpi-card.accent-teal:hover,    .metric-card.accent-teal:hover    { box-shadow: 0 14px 30px -6px rgba(20,184,166,0.28); }
 .kpi-card.accent-sky:hover,     .metric-card.accent-sky:hover     { box-shadow: 0 14px 30px -6px rgba(14,165,233,0.28); }
+@keyframes overview-note-attention {
+  0%, 58%, 100% { box-shadow: 0 7px 18px rgba(20,28,5,.11); border-color: rgba(0,0,0,.1); transform: translateY(0) scale(1); }
+  68% { box-shadow: 0 0 0 5px rgba(198,255,52,.38), 0 25px 48px rgba(103,145,4,.34), 0 10px 20px rgba(0,0,0,.14); border-color: rgba(151,204,22,.82); transform: translateY(-5px) scale(1.025); }
+  78% { box-shadow: 0 0 0 12px rgba(198,255,52,0), 0 15px 30px rgba(103,145,4,.23), 0 7px 16px rgba(0,0,0,.12); border-color: rgba(151,204,22,.44); transform: translateY(-1px) scale(1.008); }
+  88% { box-shadow: 0 7px 18px rgba(20,28,5,.11); border-color: rgba(0,0,0,.1); transform: translateY(0) scale(1); }
+}
+
+.overview-note-attention { animation: overview-note-attention 2.8s cubic-bezier(.22,1,.36,1) infinite; transform-origin: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .overview-note-attention { animation: none; }
+}

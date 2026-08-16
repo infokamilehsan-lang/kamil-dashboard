@@ -3,7 +3,9 @@ import { useShop } from '../context/ShopContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { SHOP_TYPES, CURRENCIES } from '../data/initialData';
+import { SIDEBAR_MODULES, SIDEBAR_MODULE_IDS } from '../data/sidebarModules';
 import { sendClientEmail } from '../lib/emailService';
+
 
 const TABS = [
   {
@@ -19,6 +21,11 @@ const TABS = [
   {
     id: 'preferences', labelKey: 'tab_preferences', icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+    )
+  },
+  {
+    id: 'modules', labelKey: 'tab_sidebarModules', icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h10" /></svg>
     )
   },
   {
@@ -67,12 +74,13 @@ export default function ShopSettingsModal({ shop, onClose }) {
   const { updateShop, deleteShop, shops, addBankCard, updateBankCard, deleteBankCard, emailSettings: ctxEmailSettings, updateEmailSettings } = useShop();
   const { user, changePassword } = useAuth();
   const { t, locale } = useLanguage();
+  const it = String(locale).toLowerCase().startsWith('it');
   const [activeTab, setActiveTab] = useState('general');
   const [saved, setSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Email settings state (synced with Firestore via context)
+  // Email settings state (synced with the backend API via context)
   const [emailSettings, setEmailSettings] = useState(() => ctxEmailSettings || { enabled: true, ownerEmail: 'infokamilstoreitalia@gmail.com' });
   const [emailSaved, setEmailSaved] = useState(false);
   const [emailTestResult, setEmailTestResult] = useState(null);
@@ -110,19 +118,21 @@ export default function ShopSettingsModal({ shop, onClose }) {
   const bankCards = shop.bankCards || [];
 
   // Change password state
-  const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' });
+  const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '', mfaCode: '' });
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
-  const isGoogleUser = user?.providerData?.[0]?.providerId === 'google.com';
+  const isGoogleUser = user?.authMethods?.includes('google');
+
+  // App PIN state
 
   const handleChangePassword = async () => {
     setPwError('');
     setPwSuccess(false);
-    if (!pwForm.current || !pwForm.newPw || !pwForm.confirm) {
+    if (!pwForm.current || !pwForm.newPw || !pwForm.confirm || !pwForm.mfaCode) {
       setPwError(t('pw_allFieldsRequired')); return;
     }
-    if (pwForm.newPw.length < 6) {
+    if (pwForm.newPw.length < 12 || !/[a-z]/.test(pwForm.newPw) || !/[A-Z]/.test(pwForm.newPw) || !/\d/.test(pwForm.newPw)) {
       setPwError(t('login_weakPassword')); return;
     }
     if (pwForm.newPw !== pwForm.confirm) {
@@ -130,9 +140,9 @@ export default function ShopSettingsModal({ shop, onClose }) {
     }
     setPwLoading(true);
     try {
-      await changePassword(pwForm.current, pwForm.newPw);
+      await changePassword(pwForm.current, pwForm.newPw, pwForm.mfaCode);
       setPwSuccess(true);
-      setPwForm({ current: '', newPw: '', confirm: '' });
+      setPwForm({ current: '', newPw: '', confirm: '', mfaCode: '' });
       setTimeout(() => setPwSuccess(false), 4000);
     } catch (err) {
       const code = err.code || '';
@@ -170,6 +180,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
     sdiCode: shop.sdiCode || '',
     rea: shop.rea || '',
     phone: shop.phone || '',
+    whatsapp: shop.whatsapp || '',
     email: shop.email || '',
     address: shop.address || '',
     city: shop.city || '',
@@ -177,6 +188,8 @@ export default function ShopSettingsModal({ shop, onClose }) {
     currency: shop.currency || 'USD',
     taxRate: shop.taxRate || '',
     image: shop.image || '',
+    pin: shop.pin || '',
+    sidebarModules: Array.isArray(shop.sidebarModules) ? shop.sidebarModules : [...SIDEBAR_MODULE_IDS],
   });
 
   const set = (key) => (e) => {
@@ -205,7 +218,8 @@ export default function ShopSettingsModal({ shop, onClose }) {
 
   const handleSave = () => {
     if (!form.name.trim()) return;
-    updateShop(shop.id, { ...form, name: form.name.trim() });
+    if (form.pin && form.pin.length < 4) return;
+    updateShop(shop.id, { ...form, name: form.name.trim(), pin: form.pin || '' });
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -219,8 +233,8 @@ export default function ShopSettingsModal({ shop, onClose }) {
   const canDelete = shops.length > 1;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col" style={{maxHeight: '95vh', minHeight: '600px'}}>
+    <div className="anim-lbx-bg fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+      <div className="anim-lightbox bg-white rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col" style={{maxHeight: '95vh', minHeight: '600px'}}>
 
         {/* Header */}
         <div className="px-6 py-5 shrink-0" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
@@ -274,7 +288,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
                           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
-                          <span className="text-xs">Nessuna immagine</span>
+                          <span className="text-xs">{it ? 'Nessuna immagine' : 'No image'}</span>
                         </div>
                       )}
                     </div>
@@ -310,7 +324,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
                       </svg>
                       {form.image ? t('changeImage') : t('uploadImage')}
                     </button>
-                    <p className="text-xs text-slate-500">JPG, PNG, WEBP • Max consigliato: 2MB</p>
+                    <p className="text-xs text-slate-500">JPG, PNG, WEBP • {it ? 'Massimo consigliato: 2 MB' : 'Recommended maximum: 2 MB'}</p>
                   </div>
                 </div>
               </Field>
@@ -369,7 +383,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label={t('pecEmail')} hint={t('pecHint')}>
-                    <input className={inputCls} type="email" value={form.pec} onChange={set('pec')} placeholder="es. negozio@pec.it" />
+                    <input className={inputCls} type="email" value={form.pec} onChange={set('pec')} placeholder="es. azienda@gmail.com" />
                   </Field>
                   <Field label={t('sdiCode')} hint={t('sdiHint')}>
                     <input className={inputCls} value={form.sdiCode} onChange={set('sdiCode')} placeholder="es. M5UXCR1" maxLength={7} style={{ textTransform: 'uppercase' }} />
@@ -382,9 +396,32 @@ export default function ShopSettingsModal({ shop, onClose }) {
               </div>
 
               <div className="bg-gray-50 rounded-xl p-4 text-xs text-slate-500 space-y-1">
-                <p><span className="font-semibold text-gray-600">ID Negozio:</span> {shop.id}</p>
-                <p><span className="font-semibold text-gray-600">Creato il:</span> {new Date(shop.createdAt).toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                <p><span className="font-semibold text-gray-600">Transazioni:</span> {shop.transactions?.length || 0} registrazioni</p>
+                <p><span className="font-semibold text-gray-600">{it ? 'ID Negozio' : 'Shop ID'}:</span> {shop.id}</p>
+                <p><span className="font-semibold text-gray-600">{it ? 'Creato il' : 'Created on'}:</span> {new Date(shop.createdAt).toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <p><span className="font-semibold text-gray-600">{it ? 'Transazioni' : 'Transactions'}:</span> {shop.transactions?.length || 0} {it ? 'registrazioni' : 'records'}</p>
+              </div>
+
+              {/* ── Shop PIN ── */}
+              <div className="border border-amber-200 bg-amber-50/30 rounded-2xl p-4 space-y-3">
+                <p className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                  PIN Negozio
+                </p>
+                <p className="text-xs text-slate-500">{it ? "Imposta un PIN numerico per proteggere l'accesso a questo negozio. Lascia vuoto per nessun PIN." : 'Set a numeric PIN to protect access to this shop. Leave blank for no PIN.'}</p>
+                <Field label="PIN (solo numeri, 4-8 cifre)">
+                  <input
+                    className={inputCls}
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={8}
+                    value={form.pin}
+                    onChange={e => { setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '') })); setSaved(false); }}
+                    placeholder="es. 1234"
+                  />
+                </Field>
+                {form.pin && form.pin.length < 4 && (
+                  <p className="text-xs text-red-500">{it ? 'Il PIN deve essere di almeno 4 cifre.' : 'The PIN must contain at least 4 digits.'}</p>
+                )}
               </div>
             </div>
           )}
@@ -396,6 +433,11 @@ export default function ShopSettingsModal({ shop, onClose }) {
                 <Field label={t('phoneNumber')}>
                   <input className={inputCls} value={form.phone} onChange={set('phone')} placeholder="+39 555-0000" />
                 </Field>
+                <Field label={t('whatsappNumber')}>
+                  <input className={inputCls} value={form.whatsapp} onChange={set('whatsapp')} placeholder="+39 333-0000000" inputMode="tel" />
+                </Field>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label={t('emailAddress')}>
                   <input className={inputCls} type="email" value={form.email} onChange={set('email')} placeholder="negozio@esempio.com" />
                 </Field>
@@ -471,13 +513,40 @@ export default function ShopSettingsModal({ shop, onClose }) {
             </div>
           )}
 
+          {activeTab === 'modules' && (
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-lg font-black text-gray-900">{String(locale).startsWith('it') ? 'Sezioni della barra laterale' : 'Sidebar sections'}</h3>
+                <p className="text-sm text-gray-500 mt-1">{String(locale).startsWith('it') ? 'Scegli cosa mostrare solo per questo negozio. Panoramica resta sempre disponibile.' : 'Choose what appears for this shop only. Overview always remains available.'}</p>
+              </div>
+              <div className="rounded-2xl border border-lime-200 p-4 flex items-center justify-between" style={{ background: '#f1fec8' }}>
+                <div><p className="font-black text-gray-900">{String(locale).startsWith('it') ? 'Panoramica' : 'Overview'}</p><p className="text-xs text-gray-500">{String(locale).startsWith('it') ? 'Centro di controllo principale' : 'Main business control center'}</p></div>
+                <span className="px-3 py-1.5 rounded-full text-xs font-black bg-white border border-lime-300">{String(locale).startsWith('it') ? 'Sempre attiva' : 'Always on'}</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {SIDEBAR_MODULES.map((module) => {
+                  const enabled = form.sidebarModules.includes(module.id);
+                  return <button key={module.id} type="button" onClick={() => { setForm((current) => ({ ...current, sidebarModules: enabled ? current.sidebarModules.filter((id) => id !== module.id) : [...current.sidebarModules, module.id] })); setSaved(false); }} className={`p-4 rounded-2xl border text-left flex items-center gap-3 transition-all ${enabled ? 'border-lime-400 bg-lime-50 shadow-sm' : 'border-gray-200 bg-gray-50 opacity-70'}`}>
+                    <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-black ${enabled ? 'bg-[#c6ff34] text-black' : 'bg-gray-200 text-gray-500'}`}>{module.id.charAt(0).toUpperCase()}</span>
+                    <span className="min-w-0 flex-1"><strong className="block text-sm text-gray-900">{String(locale).startsWith('it') ? module.it : module.en}</strong><span className="block text-[11px] text-gray-500 mt-0.5">{String(locale).startsWith('it') ? module.descriptionIt : module.descriptionEn}</span></span>
+                    <span className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${enabled ? 'bg-[#a3e635]' : 'bg-gray-300'}`}><span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} /></span>
+                  </button>;
+                })}
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => { setForm((current) => ({ ...current, sidebarModules: [...SIDEBAR_MODULE_IDS] })); setSaved(false); }} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-bold">{String(locale).startsWith('it') ? 'Attiva tutto' : 'Enable all'}</button>
+                <button type="button" onClick={() => { setForm((current) => ({ ...current, sidebarModules: [] })); setSaved(false); }} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-bold">{String(locale).startsWith('it') ? 'Disattiva tutto' : 'Disable all'}</button>
+              </div>
+            </div>
+          )}
+
           {/* ── BANK CARDS ── */}
           {activeTab === 'cards' && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-100">{t('myBankCards')}</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Aggiungi le tue carte bancarie per pagare rapidamente gli stipendi</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{it ? 'Aggiungi le tue carte bancarie per pagare rapidamente gli stipendi' : 'Add bank cards to pay salaries quickly'}</p>
                 </div>
                 <button
                   onClick={() => { setAddCardOpen(true); setCardFormError(''); }}
@@ -550,7 +619,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
                     <svg className="w-6 h-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                   </div>
                   <p className="text-sm text-slate-500 font-medium">{t('noBankCardsYet')}</p>
-                  <p className="text-xs text-slate-600 mt-1">Clicca "Aggiungi Carta" per aggiungere la tua prima carta</p>
+                  <p className="text-xs text-slate-600 mt-1">{it ? 'Clicca “Aggiungi Carta” per aggiungere la tua prima carta' : 'Click “Add Card” to add your first card'}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -580,7 +649,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
                           </div>
                           <div className="flex items-end justify-between mt-3">
                             <div>
-                              <p className="text-gray-900/60 text-xs">Intestatario</p>
+                              <p className="text-gray-900/60 text-xs">{it ? 'Intestatario' : 'Cardholder'}</p>
                               <p className="text-gray-900 text-sm font-semibold">{card.cardHolder}</p>
                             </div>
                           </div>
@@ -651,8 +720,8 @@ export default function ShopSettingsModal({ shop, onClose }) {
 
               {/* Delete Confirm */}
               {deleteCardId && (
-                <div className="fixed inset-0 bg-black/50 z-70 flex items-center justify-center p-4">
-                  <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-xs w-full text-center">
+                <div className="anim-lbx-bg fixed inset-0 bg-black/50 z-70 flex items-center justify-center p-4">
+                  <div className="anim-lightbox bg-white rounded-2xl shadow-2xl p-6 max-w-xs w-full text-center">
                     <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
                       <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </div>
@@ -677,7 +746,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
               <div className="flex items-center justify-between bg-white border border-gray-200 rounded-2xl px-5 py-4">
                 <div>
                   <p className="text-sm font-semibold text-gray-800">{t('enableEmailNotifications')}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Auto-send emails when repairs ready, advances cleared, items sold</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{it ? 'Invia automaticamente email per riparazioni pronte, saldi completati e articoli venduti' : 'Automatically send emails when repairs are ready, balances are cleared or items are sold'}</p>
                 </div>
                 <button
                   onClick={() => setEmailSettings(s => ({ ...s, enabled: !s.enabled }))}
@@ -698,7 +767,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
 
               {/* Email Logo */}
               <div className="border border-gray-100 rounded-2xl p-4 space-y-3 bg-gray-50/40">
-                <p className="text-sm font-bold text-gray-700">Shop Logo in Email</p>
+                <p className="text-sm font-bold text-gray-700">{it ? 'Logo negozio nelle email' : 'Shop Logo in Email'}</p>
                 <Field label="Logo URL" hint="Paste a public image link (from imgbb.com, imgur, etc.)">
                   <input className={inputCls} placeholder="https://i.ibb.co/..."
                     value={emailSettings.shopLogoUrl || ''}
@@ -741,7 +810,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
 
               {/* Test email */}
               <div className="border-t border-gray-100 pt-4 space-y-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Send a test email</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{it ? 'Invia email di prova' : 'Send a test email'}</p>
                 <div className="flex gap-2">
                   <input type="email" className={inputCls + ' flex-1'} placeholder="yourtest@email.com"
                     value={testEmailAddr} onChange={e => setTestEmailAddr(e.target.value)} />
@@ -823,9 +892,20 @@ export default function ShopSettingsModal({ shop, onClose }) {
                           placeholder="••••••••"
                         />
                       </Field>
+                      <Field label={t('pw_mfaCode')}>
+                        <input
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          value={pwForm.mfaCode}
+                          onChange={(e) => { setPwForm(f => ({ ...f, mfaCode: e.target.value.replace(/\D/g, '').slice(0, 6) })); setPwError(''); }}
+                          className={inputCls}
+                          placeholder="000000"
+                        />
+                        <p className="text-xs text-slate-400 mt-1">{t('pw_mfaHelp')}</p>
+                      </Field>
                       <button
                         onClick={handleChangePassword}
-                        disabled={pwLoading}
+                        disabled={pwLoading || pwForm.mfaCode.length !== 6}
                         className="w-full py-2.5 text-white font-semibold rounded-xl transition-all text-sm disabled:opacity-50"
                         style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
                       >
@@ -835,6 +915,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
                   )}
                 </div>
               </div>
+
             </div>
           )}
 
@@ -844,7 +925,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
               <div className="border border-red-200 rounded-2xl overflow-hidden">
                 <div className="bg-red-500/10 px-5 py-3 border-b border-red-100">
                   <h3 className="text-sm font-bold text-red-700">{t('tab_dangerZone')}</h3>
-                  <p className="text-xs text-red-400 mt-0.5">Queste azioni sono irreversibili. Fai attenzione.</p>
+                  <p className="text-xs text-red-400 mt-0.5">{it ? 'Queste azioni sono irreversibili. Fai attenzione.' : 'These actions cannot be undone. Be careful.'}</p>
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="flex items-start justify-between gap-4">
@@ -852,7 +933,7 @@ export default function ShopSettingsModal({ shop, onClose }) {
                       <p className="text-sm font-semibold text-slate-100">{t('deleteThisShop')}</p>
                       <p className="text-xs text-slate-500 mt-0.5">
                         Rimuove permanentemente <span className="font-semibold">{shop.name}</span> e tutte le {shop.transactions?.length || 0} registrazioni di transazioni.
-                        {!canDelete && <span className="block text-amber-500 mt-1">Devi avere almeno un negozio. Aggiungi prima un altro negozio.</span>}
+                        {!canDelete && <span className="block text-amber-500 mt-1">{it ? 'Devi avere almeno un negozio. Aggiungi prima un altro negozio.' : 'You must keep at least one shop. Add another shop first.'}</span>}
                       </p>
                     </div>
                     <button
@@ -902,8 +983,8 @@ export default function ShopSettingsModal({ shop, onClose }) {
 
       {/* Delete Confirm Overlay */}
       {confirmDelete && (
-        <div className="fixed inset-0 bg-black/60 z-60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+        <div className="anim-lbx-bg fixed inset-0 bg-black/60 z-60 flex items-center justify-center p-4">
+          <div className="anim-lightbox bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
             <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />

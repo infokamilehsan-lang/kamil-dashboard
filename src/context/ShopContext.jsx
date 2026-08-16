@@ -11,7 +11,6 @@ const localDate = (d = new Date()) =>
 const STORAGE_KEY = 'dashboard_shops';
 const ACTIVE_KEY = 'dashboard_activeShopId';
 const BRAND_KEY = 'dashboard_brand';
-const CONTACTS_KEY = 'email_saved_contacts';
 const EMAIL_SETTINGS_KEY = 'email_notification_settings';
 const PENDING_KEY = 'dashboard_pendingWrite'; // set when local has un-synced changes
 
@@ -25,17 +24,6 @@ function localSaveBrand(brand) {
 
 const DEFAULT_EMAIL_SETTINGS = { enabled: true, ownerEmail: 'infokamilstoreitalia@gmail.com' };
 
-function localLoadContacts() {
-  try { const r = localStorage.getItem(CONTACTS_KEY); if (r) return JSON.parse(r); } catch { }
-  return [];
-}
-function localSaveContacts(contacts) {
-  try { localStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts)); } catch { }
-}
-function localLoadEmailSettings() {
-  try { const r = localStorage.getItem(EMAIL_SETTINGS_KEY); if (r) return JSON.parse(r); } catch { }
-  return DEFAULT_EMAIL_SETTINGS;
-}
 function localSaveEmailSettings(settings) {
   try { localStorage.setItem(EMAIL_SETTINGS_KEY, JSON.stringify(settings)); } catch { }
 }
@@ -65,7 +53,47 @@ function localSave(shops, activeShopId, markPending = true) {
     } else {
       localStorage.removeItem(PENDING_KEY);
     }
-  } catch { }
+  } catch {
+    // Base64 photos/documents can exceed the browser's ~5 MB localStorage quota.
+    // Keep a complete metadata cache while the original binaries remain on the server.
+    try {
+      const compact = JSON.parse(JSON.stringify(shops, (key, value) => {
+        if (key === 'data' && typeof value === 'string' && value.startsWith('data:')) return undefined;
+        return value;
+      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(compact));
+      localStorage.setItem(ACTIVE_KEY, activeShopId);
+      if (markPending) localStorage.setItem(PENDING_KEY, '1');
+      else localStorage.removeItem(PENDING_KEY);
+    } catch (error) {
+      console.error('[ShopContext] Local cache write failed:', error);
+    }
+  }
+}
+
+function mergePendingShops(localShops, remoteShops) {
+  const remoteById = new Map((remoteShops || []).map((shop) => [shop.id, shop]));
+  return localShops.map((localShop) => {
+    const remoteShop = remoteById.get(localShop.id);
+    if (!remoteShop) return localShop;
+    const remoteSecondhand = new Map((remoteShop.secondhand || []).map((item) => [item.id, item]));
+    return {
+      ...remoteShop,
+      ...localShop,
+      secondhand: (localShop.secondhand || []).map((localItem) => {
+        const remoteItem = remoteSecondhand.get(localItem.id) || {};
+        const mergeFile = (localFile, remoteFile) => localFile?.data ? localFile : (remoteFile || localFile);
+        const remoteImages = remoteItem.productImages || [];
+        return {
+          ...remoteItem,
+          ...localItem,
+          productImages: (localItem.productImages || []).map((image, index) => mergeFile(image, remoteImages[index])),
+          documentFront: mergeFile(localItem.documentFront, remoteItem.documentFront),
+          documentBack: mergeFile(localItem.documentBack, remoteItem.documentBack),
+        };
+      }),
+    };
+  });
 }
 
 // Stable JSON for echo-detection: sort by id so array order doesn't matter
@@ -75,7 +103,7 @@ function shopsJson(arr) {
 
 const ShopContext = createContext(null);
 
-// ── MySQL REST API ────────────────────────────────────────────
+// ── PostgreSQL REST API ───────────────────────────────────────
 // Set VITE_API_URL in .env to point at your backend server.
 // Default: http://localhost:3001 (local dev)
 const API_URL = (import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3001`).replace(/\/$/, '');
@@ -109,12 +137,11 @@ export function ShopProvider({ children }) {
   const [syncTrigger, setSyncTrigger] = useState(0);
   const saveTimer = useRef(null);
   const brandSaveTimer = useRef(null);
-  const lastWrittenShopsJson = useRef('');
+  // Start from the local snapshot so mounting the provider is not mistaken for a new edit.
+  const lastWrittenShopsJson = useRef(shopsJson(localLoadShops()));
   const lastWrittenBrandJson = useRef('');
   const initialized = useRef(false);
   const flushNow = useRef(false);
-  const shopsRef = useRef(shops);
-  shopsRef.current = shops;
   const pollTimer = useRef(null);
 
   // ── Load from API — always use server as source of truth ──
@@ -128,10 +155,19 @@ export function ShopProvider({ children }) {
     async function fetchFromServer(isInitial = false) {
       try {
         const { shops: remoteShops, brand: remoteBrand } = await apiFetch('/api/all', 'GET', undefined);
-        // After the async fetch, re-check if local edits happened while we were waiting.
-        // Skip overwrite unless this is the first load (initial must always apply).
-        if (!isInitial && localStorage.getItem(PENDING_KEY) === '1') {
-          if (!initialized.current) initialized.current = true;
+        // Resolve pending writes deterministically before accepting an older server snapshot.
+        // Waiting for a second React effect caused refreshes to alternate between local/server data.
+        if (localStorage.getItem(PENDING_KEY) === '1') {
+          setSyncStatus('syncing');
+          const localShops = mergePendingShops(localLoadShops(), remoteShops || []);
+          await Promise.all(localShops.map((shop) => apiFetch(`/api/shops/${shop.id}`, 'PUT', shop)));
+          const localJson = shopsJson(localShops);
+          setShops(localShops);
+          setActiveShopId((previous) => localShops.some((shop) => shop.id === previous) ? previous : (localShops[0]?.id || previous));
+          lastWrittenShopsJson.current = localJson;
+          initialized.current = true;
+          localSave(localShops, localStorage.getItem(ACTIVE_KEY) || localShops[0]?.id, false);
+          setSyncStatus('saved');
           return;
         }
         const filtered = (remoteShops || [])
@@ -158,6 +194,10 @@ export function ShopProvider({ children }) {
         console.error('[ShopContext] Load from API failed:', err);
         setSyncStatus('offline');
         initialized.current = true;
+        if (localStorage.getItem(PENDING_KEY) === '1') {
+          lastWrittenShopsJson.current = '[]';
+          setSyncTrigger((value) => value + 1);
+        }
       }
     }
 
@@ -207,7 +247,7 @@ export function ShopProvider({ children }) {
     };
   }, [user]);
 
-  // ── Write shops to MySQL (per-shop delta) ─────────────────
+  // ── Write shops to PostgreSQL (per-shop delta) ─────────────
   useEffect(() => {
     if (!user) return;
 
@@ -243,9 +283,9 @@ export function ShopProvider({ children }) {
         lastWrittenShopsJson.current = currentJson;
         localStorage.removeItem(PENDING_KEY);
         setSyncStatus('saved');
-        console.log('[ShopContext] MySQL write success:', toWrite.length, 'updated,', toDelete.length, 'deleted');
+        console.log('[ShopContext] PostgreSQL write success:', toWrite.length, 'updated,', toDelete.length, 'deleted');
       } catch (err) {
-        console.error('[ShopContext] MySQL write failed:', err);
+        console.error('[ShopContext] PostgreSQL write failed:', err);
         setSyncStatus('offline');
         // Retry after 3s so pending edits eventually sync when server recovers
         saveTimer.current = setTimeout(() => setSyncTrigger(t => t + 1), 3000);
@@ -253,7 +293,7 @@ export function ShopProvider({ children }) {
     }, delay);
   }, [shops, user, syncTrigger]);
 
-  // ── Write brand to MySQL ──────────────────────────────────
+  // ── Write brand to PostgreSQL ─────────────────────────────
   useEffect(() => {
     if (!user || !initialized.current) return;
     const currentJson = JSON.stringify(brand);
@@ -265,9 +305,9 @@ export function ShopProvider({ children }) {
       try {
         await apiFetch('/api/brand', 'PUT', brand);
         lastWrittenBrandJson.current = currentJson;
-        console.log('[ShopContext] Brand MySQL write success');
+        console.log('[ShopContext] Brand PostgreSQL write success');
       } catch (err) {
-        console.error('[ShopContext] Brand MySQL write failed:', err);
+        console.error('[ShopContext] Brand PostgreSQL write failed:', err);
       }
     }, 800);
   }, [brand, user]);
@@ -284,7 +324,7 @@ export function ShopProvider({ children }) {
 
   const activeShop = shops.find((s) => s.id === activeShopId) || shops[0];
 
-  // ── Contacts (per-shop, synced via Firestore) ──
+  // ── Contacts (per-shop, synced through the backend API) ──
   const contacts = activeShop?.contacts || [];
   const emailSettings = activeShop?.emailSettings || DEFAULT_EMAIL_SETTINGS;
   const getSavedContacts = useCallback(() => contacts, [contacts]);
@@ -325,7 +365,7 @@ export function ShopProvider({ children }) {
     );
   }, [activeShopId]);
 
-  // ── Email Settings (per-shop, synced via Firestore) ──
+  // ── Email settings (per-shop, synced through the backend API) ──
   const getEmailSettingsSynced = useCallback(() => emailSettings, [emailSettings]);
 
   const updateEmailSettings = useCallback((settings) => {
@@ -441,7 +481,7 @@ export function ShopProvider({ children }) {
           : shop
       )
     );
-  }, []);
+  }, [activeShopId]);
 
   const deleteTeamMember = useCallback((shopId, memberId) => {
     setShops((prev) =>
@@ -451,7 +491,7 @@ export function ShopProvider({ children }) {
           : shop
       )
     );
-  }, []);
+  }, [activeShopId]);
 
   const addTransactionForShop = useCallback((shopId, txData) => {
     const newTx = {
@@ -466,7 +506,7 @@ export function ShopProvider({ children }) {
           : shop
       )
     );
-  }, []);
+  }, [activeShopId]);
 
   // ── REPAIRS ──
   const addRepair = useCallback((repairData) => {
@@ -655,7 +695,6 @@ export function ShopProvider({ children }) {
         code: `SKU-${num}`,
         createdAt: today,
         stock: 0,
-        movements: [],
         ...skuData,
         movements: openingMovements,
       };
@@ -688,40 +727,50 @@ export function ShopProvider({ children }) {
 
   // ── Secondhand ──────────────────────────────────────────────────────────
   const addSecondhand = useCallback((shopId, item) => {
-    setShops((prev) =>
-      prev.map((shop) =>
+    flushNow.current = true;
+    setShops((prev) => {
+      const updated = prev.map((shop) =>
         shop.id === shopId
           ? { ...shop, secondhand: [{ id: `sh-${Date.now()}`, createdAt: new Date().toISOString(), ...item }, ...(shop.secondhand || [])] }
           : shop
-      )
-    );
+      );
+      // Persist inside the state transaction so even an immediate refresh cannot lose the item.
+      localSave(updated, activeShopId || shopId, true);
+      return updated;
+    });
     notify('success', tStatic('notify_itemBought'), `${item.itemName || ''} ${item.brand ? '· ' + item.brand : ''}`);
-  }, []);
+  }, [activeShopId]);
 
   const updateSecondhand = useCallback((shopId, itemId, changes) => {
-    setShops((prev) =>
-      prev.map((shop) =>
+    flushNow.current = true;
+    setShops((prev) => {
+      const updated = prev.map((shop) =>
         shop.id === shopId
           ? { ...shop, secondhand: (shop.secondhand || []).map((sh) => sh.id === itemId ? { ...sh, ...changes } : sh) }
           : shop
-      )
-    );
+      );
+      localSave(updated, activeShopId || shopId, true);
+      return updated;
+    });
     if (changes.status === 'sold') {
       const amt = changes.sellPrice ? `${Number(changes.sellPrice).toLocaleString('it-IT')} €` : '';
       notify('success', tStatic('notify_itemSold'), `${changes.buyerName || ''} · ${amt}`);
     }
-  }, []);
+  }, [activeShopId]);
 
   const deleteSecondhand = useCallback((shopId, itemId) => {
-    setShops((prev) =>
-      prev.map((shop) =>
+    flushNow.current = true;
+    setShops((prev) => {
+      const updated = prev.map((shop) =>
         shop.id === shopId
           ? { ...shop, secondhand: (shop.secondhand || []).filter((sh) => sh.id !== itemId) }
           : shop
-      )
-    );
+      );
+      localSave(updated, activeShopId || shopId, true);
+      return updated;
+    });
     notify('error', tStatic('notify_secondhandDeleted'), tStatic('notify_recordRemoved'));
-  }, []);
+  }, [activeShopId]);
 
   // ── BANK CARDS (admin's own cards) ──────────────────────────────────────
   const addBankCard = useCallback((shopId, cardData) => {

@@ -50,7 +50,7 @@ export function AuthProvider({ children }) {
       .then(async (res) => {
         clearTimeout(timeoutId);
         const data = await res.json();
-        if (res.ok) setUser({ email: data.email, displayName: data.email.split('@')[0] });
+        if (res.ok) setUser({ email: data.email, displayName: data.email.split('@')[0], authMethods: data.authMethods || [] });
         else { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(EMAIL_KEY); }
       })
       .catch(() => {
@@ -67,12 +67,23 @@ export function AuthProvider({ children }) {
     return () => { clearTimeout(safetyTimer); clearTimeout(timeoutId); controller.abort(); };
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    const { token, email: serverEmail } = await apiFetch('/api/auth/login', 'POST', { email, password });
+  const persistSession = useCallback((token, serverEmail, authMethods = []) => {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(EMAIL_KEY, serverEmail);
-    setUser({ email: serverEmail, displayName: serverEmail.split('@')[0] });
+    setUser({ email: serverEmail, displayName: serverEmail.split('@')[0], authMethods });
   }, []);
+
+  const login = useCallback(async (email, password) => {
+    const response = await apiFetch('/api/auth/login', 'POST', { email, password });
+    if (response.token) persistSession(response.token, response.email, response.authMethods);
+    return response;
+  }, [persistSession]);
+
+  const verifyMfa = useCallback(async (challengeToken, code) => {
+    const response = await apiFetch('/api/auth/mfa/verify', 'POST', { challengeToken, code });
+    persistSession(response.token, response.email, response.authMethods);
+    return response;
+  }, [persistSession]);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
@@ -80,22 +91,24 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
-  const changePassword = useCallback(async (currentPassword, newPassword) => {
-    await apiFetch('/api/auth/change-password', 'POST', { currentPassword, newPassword });
+  const changePassword = useCallback(async (currentPassword, newPassword, mfaCode) => {
+    const response = await apiFetch('/api/auth/change-password', 'POST', { currentPassword, newPassword, mfaCode });
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(EMAIL_KEY);
+    setUser(null);
+    return response;
   }, []);
 
   const googleLogin = useCallback(async (credential) => {
-    const { token, email: serverEmail } = await apiFetch('/api/auth/google', 'POST', { credential });
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(EMAIL_KEY, serverEmail);
-    setUser({ email: serverEmail, displayName: serverEmail.split('@')[0] });
-  }, []);
+    const { token, email: serverEmail, authMethods } = await apiFetch('/api/auth/google', 'POST', { credential });
+    persistSession(token, serverEmail, authMethods);
+  }, [persistSession]);
 
   // Provide getIdToken so ShopContext can get the Bearer token
   const getToken = useCallback(() => localStorage.getItem(TOKEN_KEY), []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, googleLogin, logout, changePassword, getToken }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyMfa, googleLogin, logout, changePassword, getToken }}>
       {children}
     </AuthContext.Provider>
   );
@@ -106,5 +119,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
-
-

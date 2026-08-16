@@ -38,13 +38,16 @@ export default function AddShopModal({ onClose }) {
 
   const handleSubmit = () => {
     if (services.length === 0) { setError(t('selectAtLeastOneService')); return; }
-    addShop({ name: name.trim(), type, services });
+    // Keep the legacy service selection and initialise the new per-shop sidebar
+    // preference. These three modules were historically always visible.
+    const sidebarModules = [...new Set([...services, 'clients', 'emails', 'whatsapp'])];
+    addShop({ name: name.trim(), type, services, sidebarModules });
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+    <div className="anim-lbx-bg fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="anim-lightbox bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         {/* Header */}
         <div className="p-6 rounded-t-2xl" style={{ background: 'linear-gradient(135deg, #582f0e, #7f4f24)' }}>
           <div className="flex items-center justify-between">

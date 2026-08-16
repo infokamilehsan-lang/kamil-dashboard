@@ -10,11 +10,11 @@ import { getEmailLog, clearEmailLog } from '../lib/emailService';
 
 
 
-export default function ShopManager({ onSearchOpen }) {
-  const { shops, activeShop, setActiveShopId, deleteShop, syncStatus, brand, updateBrand, downloadBackup } = useShop();
+export default function ShopManager() {
+  const { shops, activeShop, setActiveShopId, deleteShop, brand, updateBrand, downloadBackup } = useShop();
   const { notifications, unreadCount, markAllRead, clearAll, ICONS, COLORS } = useNotifications();
   const { t, locale, lang, toggleLang } = useLanguage();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -26,9 +26,14 @@ export default function ShopManager({ onSearchOpen }) {
   const brandImgRef = useRef(null);
   const ref = useRef(null);
   const notifRef = useRef(null);
+  const navbarRef = useRef(null);
   const [emailBoxOpen, setEmailBoxOpen] = useState(false);
   const [emailLog, setEmailLog] = useState([]);
   const emailBoxRef = useRef(null);
+  const [pinPrompt, setPinPrompt] = useState(null); // { shopId, pin }
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const pinInputRef = useRef(null);
 
   const openEmailBox = () => {
     setEmailLog(getEmailLog());
@@ -46,6 +51,16 @@ export default function ShopManager({ onSearchOpen }) {
     return () => clearInterval(t);
   }, []);
 
+  // Navbar shrink on scroll
+  useEffect(() => {
+    const onScroll = () => {
+      if (navbarRef.current)
+        navbarRef.current.classList.toggle('', window.scrollY > 20);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
@@ -57,9 +72,16 @@ export default function ShopManager({ onSearchOpen }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const shopType = SHOP_TYPES.find((t) => t.value === activeShop?.type);
-
   const handleSelect = (shopId) => {
+    const shop = shops.find(s => s.id === shopId);
+    if (shop?.pin && shopId !== activeShop?.id) {
+      setPinPrompt({ shopId, pin: shop.pin });
+      setPinInput('');
+      setPinError(false);
+      setDropdownOpen(false);
+      setTimeout(() => pinInputRef.current?.focus(), 100);
+      return;
+    }
     setActiveShopId(shopId);
     setDropdownOpen(false);
   };
@@ -103,56 +125,111 @@ export default function ShopManager({ onSearchOpen }) {
   const timeStr = now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: true });
   const dateStr = now.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' });
 
-  const syncConfig = {
-    saved: { dot: 'bg-violet-100', text: 'text-cyan-400', bg: 'bg-violet-500/10 border-emerald-200', label: t('synced') },
-    syncing: { dot: 'bg-blue-100 animate-pulse', text: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-200', label: t('saving') },
-    offline: { dot: 'bg-red-100', text: 'text-red-400', bg: 'bg-red-500/10 border-red-200', label: t('offline') },
-  };
-  const sync = syncConfig[syncStatus] || syncConfig.offline;
-
   return (
     <>
+      {/* ── PIN PROMPT MODAL ── */}
+      {pinPrompt && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-200 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xs p-7 flex flex-col items-center gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center">
+              <svg className="w-7 h-7 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-gray-900">Shop PIN</h3>
+              <p className="text-sm text-gray-500 mt-1">{shops.find(s => s.id === pinPrompt.shopId)?.name}</p>
+            </div>
+            <input
+              ref={pinInputRef}
+              type="password"
+              inputMode="numeric"
+              maxLength={8}
+              value={pinInput}
+              onChange={e => {
+                const val = e.target.value.replace(/\D/g, '');
+                setPinInput(val);
+                setPinError(false);
+                if (val === pinPrompt.pin) {
+                  setActiveShopId(pinPrompt.shopId);
+                  setPinPrompt(null);
+                }
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  if (pinInput === pinPrompt.pin) {
+                    setActiveShopId(pinPrompt.shopId);
+                    setPinPrompt(null);
+                  } else {
+                    setPinError(true);
+                    setPinInput('');
+                  }
+                }
+                if (e.key === 'Escape') setPinPrompt(null);
+              }}
+              placeholder="● ● ● ●"
+              className={`w-full text-center text-2xl tracking-[0.4em] px-4 py-3 border-2 rounded-xl outline-none transition-all ${pinError ? 'border-red-400 bg-red-50 animate-shake' : 'border-gray-200 focus:border-amber-400'}`}
+            />
+            {pinError && <p className="text-xs text-red-500 font-semibold -mt-2">PIN errato. Riprova.</p>}
+            <div className="flex gap-2 w-full">
+              <button onClick={() => setPinPrompt(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">Annulla</button>
+              <button
+                onClick={() => {
+                  if (pinInput === pinPrompt.pin) {
+                    setActiveShopId(pinPrompt.shopId);
+                    setPinPrompt(null);
+                  } else {
+                    setPinError(true);
+                    setPinInput('');
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition-colors"
+              >Accedi</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── HEADER BAR ── */}
-      <div className="sticky top-0 z-40 shadow-sm" style={{ backgroundColor: '#582f0e', paddingTop: 'env(safe-area-inset-top)' }}>
+      <div ref={navbarRef} className="brand-navbar brand-navbar-new fixed top-0 inset-x-0 z-40" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="relative flex items-center h-12 sm:h-14 gap-2 sm:gap-3">
+          <div className="relative flex items-center h-14 sm:h-16 gap-2 sm:gap-3">
 
             {/* Brand */}
             <button
               onClick={openBrandEdit}
-              className="flex items-center gap-2.5 shrink-0 group"
+              className="header-brand-button flex items-center gap-2.5 shrink-0 group"
               title={t('editBrand')}
             >
               {brandImage ? (
-                <div className="w-8 h-8 rounded-lg overflow-hidden ring-2 ring-amber-500/20 shrink-0">
+                <div className="w-9 h-9 rounded-xl overflow-hidden ring-1 ring-black/10 shrink-0 shadow-sm">
                   <img src={brandImage} alt={brandName} className="w-full h-full object-cover" />
                 </div>
               ) : (
-                <div className="w-8 h-8 rounded-lg bg-linear-to-br from-cyan-500 to-violet-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-900 font-black text-sm shrink-0" style={{ background: '#c6ff34' }}>
                   {brandInitials}
                 </div>
               )}
-              <span className="hidden sm:block font-extrabold text-sm tracking-wide uppercase transition-all duration-500 hover:tracking-widest hover:scale-105 hover:drop-shadow-lg border-b-2" style={{ color: '#f59e0b', letterSpacing: '0.08em', textShadow: '0 1px 2px rgba(0,0,0,0.2)', borderColor: '#f59e0b', paddingBottom: '2px', background: 'linear-gradient(90deg, #f59e0b, #fbbf24, #f59e0b)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'shimmer 3s linear infinite' }}>{brandName}</span>
+              <span className="hidden sm:block font-black text-sm tracking-[-0.02em] text-gray-900">{brandName}</span>
             </button>
 
             {/* Divider */}
-            <div className="hidden sm:block w-px h-5 bg-white/30 shrink-0" />
+            <div className="hidden sm:block w-px h-6 bg-black/10 shrink-0" />
 
             {/* Shop Selector + New Shop */}
             <div className="flex items-center gap-1.5 shrink-0" ref={ref}>
               <div className="relative">
                 <button
                   onClick={() => setDropdownOpen((o) => !o)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all border ${dropdownOpen ? 'bg-white/20 text-white border-white/40' : 'text-white/70 hover:text-white bg-white/10 hover:bg-white/20 border-white/20 hover:border-white/40'
-                    }`}
+                  className={`header-shop-button flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-all border ${dropdownOpen ? 'is-open' : ''}`}
                 >
                   {activeShop?.image ? (
                     <div className="w-5 h-5 rounded-md overflow-hidden shrink-0">
                       <img src={activeShop.image} alt={activeShop.name} className="w-full h-full object-cover" />
                     </div>
                   ) : (
-                    <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: '#f59e0b', boxShadow: '0 2px 8px rgba(245,158,11,0.4)' }}>
-                      <span className="text-[9px] font-bold text-white">{activeShop?.name?.charAt(0)?.toUpperCase()}</span>
+                    <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: '#c6ff34' }}>
+                      <span className="text-[9px] font-black text-gray-900">{activeShop?.name?.charAt(0)?.toUpperCase()}</span>
                     </div>
                   )}
                   <span className="hidden md:inline truncate max-w-28 text-sm font-semibold">{activeShop?.name || t('select')}</span>
@@ -239,7 +316,7 @@ export default function ShopManager({ onSearchOpen }) {
               {/* Language toggle */}
               <button
                 onClick={toggleLang}
-                className="flex items-center justify-center gap-1 px-2 py-1.5 sm:gap-1.5 sm:px-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white/70 hover:text-white text-xs font-semibold transition-all shrink-0"
+                className="header-icon-button flex items-center justify-center gap-1 px-2 py-2 sm:gap-1.5 sm:px-3 rounded-xl text-xs font-bold transition-all shrink-0"
                 title={lang === 'it' ? t('switchToEnglish') : t('switchToItalian')}
               >
                 {lang === 'it' ? '🇬🇧 EN' : '🇮🇹 IT'}
@@ -260,18 +337,6 @@ export default function ShopManager({ onSearchOpen }) {
 
             {/* Right: Search + Settings + Bell + Lang + Logout + Time */}
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-
-              {/* Search */}
-              <button
-                onClick={onSearchOpen}
-                className="flex items-center justify-center gap-2 w-8 h-8 sm:w-auto sm:h-auto sm:px-3 sm:py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 rounded-xl transition-all text-left group"
-              >
-                <svg className="w-3.5 h-3.5 text-white/50 group-hover:text-white shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <span className="hidden sm:inline text-xs text-white/50 group-hover:text-white/70 transition-colors">{t('search')}</span>
-                <kbd className="hidden md:inline-flex items-center text-[10px] text-white/40 border border-white/20 bg-white/10 rounded px-1 py-0.5 font-mono">⌘K</kbd>
-              </button>
 
               {/* Settings */}
               <button

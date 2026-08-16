@@ -10,7 +10,7 @@ function toISO(year, month, day) {
   return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-export default function DatePicker({ value, onChange, max, min, className = '', inputClassName = '' }) {
+export default function DatePicker({ value, onChange, max, min, className = '', inputClassName = '', placement = 'bottom' }) {
   const [open, setOpen] = useState(false);
   const [viewYear, setViewYear] = useState(() => {
     if (value) return parseInt(value.split('-')[0]);
@@ -98,7 +98,7 @@ export default function DatePicker({ value, onChange, max, min, className = '', 
 
       {/* Dropdown calendar — fixed on mobile, absolute on desktop */}
       {open && (
-        <div className="fixed sm:absolute z-999 inset-x-2 sm:inset-x-auto sm:right-0 sm:left-auto bottom-4 sm:bottom-auto sm:mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 select-none mx-auto sm:mx-0"
+        <div className={`fixed sm:absolute z-[200] inset-x-2 sm:inset-x-auto sm:right-0 sm:left-auto bottom-4 sm:bottom-auto bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 select-none mx-auto sm:mx-0 ${placement === 'top' ? 'sm:bottom-full sm:mb-2' : 'sm:top-full sm:mt-2'}`}
           style={{ maxWidth: '320px', minWidth: '290px' }}>
           {/* Month/Year navigation */}
           <div className="flex items-center justify-between mb-4">

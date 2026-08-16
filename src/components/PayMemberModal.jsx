@@ -105,8 +105,8 @@ export default function PayMemberModal({ shop, member, onClose }) {
   const totalPaid = localHistory.reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-60 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+    <div className="anim-lbx-bg fixed inset-0 bg-black/50 backdrop-blur-sm z-60 flex items-center justify-center p-4">
+      <div className="anim-lightbox bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
 
         {/* Header */}
         <div className="p-6" style={{ background: 'linear-gradient(135deg, #936639, #582f0e)' }}>

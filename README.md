@@ -1,16 +1,44 @@
-# React + Vite
+# Kamil Store Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Business dashboard with a React/Vite frontend and an Express/PostgreSQL backend.
 
-Currently, two official plugins are available:
+## Project structure
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```text
+dashboard/
+├── src/                 Frontend source
+├── public/              Frontend static assets
+├── backend/             API server
+│   ├── migrations/      PostgreSQL schema migrations
+│   ├── scripts/         Database and storage migration tools
+│   ├── server.js        Express API
+│   └── storage.js       Private Cloudflare R2 file storage
+├── .env                 Frontend public configuration (VITE_* only)
+└── backend/.env         Backend secrets (never exposed to the browser)
+```
 
-## React Compiler
+The two `.env` and `node_modules` locations are intentional: frontend and backend are separate applications. VS Code hides generated, backup, and legacy deployment files to keep the Explorer clean.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Local development
 
-## Expanding the ESLint configuration
+Frontend:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev
+```
+
+Backend:
+
+```bash
+cd backend
+npm install
+npm run db:migrate
+npm run dev
+```
+
+Use `.env.example` and `backend/.env.example` as configuration templates. Never commit the real `.env` files.
+
+## Production
+
+See `HOSTINGER_DEPLOYMENT.md`. Keep `backend/kamil.db`, `backups/`, and migration scripts until PostgreSQL production data and R2 files have been fully verified.

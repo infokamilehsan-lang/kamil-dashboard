@@ -1,0 +1,12 @@
+BEGIN;
+
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS mfa_secret_encrypted TEXT,
+  ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS mfa_enabled_at TIMESTAMPTZ;
+
+INSERT INTO app_migrations (version)
+VALUES ('002_user_mfa')
+ON CONFLICT (version) DO NOTHING;
+
+COMMIT;

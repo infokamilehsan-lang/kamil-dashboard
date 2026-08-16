@@ -23,6 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+.firebase
+.claude
 
 # Environment secrets
 .env
@@ -32,3 +34,9 @@ backend/.env
 backend/*.db
 backend/*.db-shm
 backend/*.db-wal
+
+# Local migration and recovery backups (may contain customer data)
+backups/
+
+# Customer documents must use private R2 storage, never the public web root
+public/*.pdf
